@@ -46,7 +46,7 @@ export default function TabLayout() {
           headerTitle: 'Life Companion',
         }}
       />
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="goals"  // Changed from 'journal' to 'goals' to match the file name
         options={{
           title: 'Goals',
@@ -55,7 +55,7 @@ export default function TabLayout() {
           ),
           headerTitle: 'Goals',
         }}
-      />
+      /> */}
       <Tabs.Screen
         name="habits"
         options={{
