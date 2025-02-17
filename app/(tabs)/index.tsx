@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,13 +6,16 @@ import {
     ScrollView,
     TouchableOpacity,
     Platform,
-    Dimensions,
     Modal,
     KeyboardAvoidingView,
     TextInput,
 } from 'react-native';
-import DateHeader from '../components/DateHeader';
+import DateHeader from '../../components/DateHeader';
 import { LinearGradient } from 'expo-linear-gradient';
+
+import { goalService, goodDeedService, reflectionService } from '../../services/firebaseService';
+import { auth } from '../../config/firebase';
+
 
 // Types remain the same
 interface Goal {
@@ -37,10 +40,7 @@ interface GoodnessItem {
 const TodayScreen: React.FC = () => {
 
     // goals
-    const [goals, setGoals] = useState<Goal[]>([
-        { id: '1', text: 'Complete the app design', completed: false },
-        { id: '2', text: 'Work out for 30 minutes', completed: false },
-    ]);
+    const [goals, setGoals] = useState<Goal[]>([]);
     const [goalModalVisible, setGoalModalVisible] = useState<ModalConfig>({
         isVisible: false,
         initialText: '',
@@ -76,12 +76,35 @@ const TodayScreen: React.FC = () => {
     const [reflectionText, setReflectionText] = useState('');
 
 
+    useEffect(() => {
+        const userId = auth.currentUser?.uid;
+        if (!userId) {
+            console.log('No user logged in');
+            return;
+        }
+
+        // Subscribe to real-time updates
+        const unsubscribe = goalService.subscribeToUserItems(userId, (updatedGoals) => {
+            setGoals(updatedGoals);
+        });
+
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
+    }, []);
+
+
 
     // Functions remain the same
-    const toggleGoal = (id: string) => {
-        setGoals(goals.map(goal =>
-            goal.id === id ? { ...goal, completed: !goal.completed } : goal
-        ));
+    const toggleGoal = async (id: string) => {
+        try {
+            const goal = goals.find(g => g.id === id);
+            if (goal) {
+                await goalService.toggleCompletion(id, !goal.completed);
+            }
+        } catch (error) {
+            console.error('Error toggling goal:', error);
+            // You might want to show an error message to the user here
+        }
     };
 
 
@@ -93,27 +116,52 @@ const TodayScreen: React.FC = () => {
 
 
     // goal functions
-    const handleAddGoal = () => {
-        if (newGoalText.trim()) {
+    // const handleAddGoal = () => {
+    //     if (newGoalText.trim()) {
+    //         if (goalModalVisible.editId) {
+    //             // Editing existing goal
+    //             setGoals(goals.map(goal =>
+    //                 goal.id === goalModalVisible.editId
+    //                     ? { ...goal, text: newGoalText.trim() }
+    //                     : goal
+    //             ));
+    //         } else {
+    //             // Adding new goal
+    //             const newGoal: Goal = {
+    //                 id: Date.now().toString(),
+    //                 text: newGoalText.trim(),
+    //                 completed: false,
+    //             };
+    //             setGoals([...goals, newGoal]);
+    //         }
+    //         handleCloseGoalModal();
+    //     }
+    // };
+  
+    const handleAddGoal = async () => {
+        const userId = auth.currentUser?.uid;
+        if (!userId || !newGoalText.trim()) return;
+
+        try {
             if (goalModalVisible.editId) {
                 // Editing existing goal
-                setGoals(goals.map(goal =>
-                    goal.id === goalModalVisible.editId
-                        ? { ...goal, text: newGoalText.trim() }
-                        : goal
-                ));
+                await goalService.updateItem(goalModalVisible.editId, {
+                    text: newGoalText.trim()
+                });
             } else {
                 // Adding new goal
-                const newGoal: Goal = {
-                    id: Date.now().toString(),
+                await goalService.addItem(userId, {
                     text: newGoalText.trim(),
-                    completed: false,
-                };
-                setGoals([...goals, newGoal]);
+                    completed: false
+                });
             }
             handleCloseGoalModal();
+        } catch (error) {
+            console.error('Error managing goal:', error);
+            // Handle error appropriately (show error message to user)
         }
     };
+
 
     const handleOpenGoalModal = (itemId?: string) => {
         if (itemId) {

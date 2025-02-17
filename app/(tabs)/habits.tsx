@@ -8,7 +8,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import DateHeader from '../components/DateHeader';
+import DateHeader from '../../components/DateHeader';
 
 interface WeekDay {
   date: number;
