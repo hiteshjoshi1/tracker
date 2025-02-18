@@ -1,0 +1,17 @@
+{
+    "build": {
+        "preview": {
+            "android": {
+              "buildType": "apk"
+            }
+          },
+      "production": {
+        "distribution": "store",
+        "android": {
+          "buildType": "apk",
+          "withoutCredentials": false
+        },
+        "prebuildCommand": "./node_modules/.bin/expo prebuild"
+      }
+    }
+  }

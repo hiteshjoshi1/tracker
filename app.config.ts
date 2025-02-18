@@ -1,3 +1,4 @@
+//app.config.ts
 import { ExpoConfig, ConfigContext } from 'expo/config';
 import 'dotenv/config';
 
@@ -13,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.hiteshjoshi.tracker", // Add this
-    // googleServicesFile: "./GoogleService-Info.plist", // Add this if using Firebase
+    googleServicesFile: "./GoogleService-Info.plist", // Add this if using Firebase
   },
   android: {
     adaptiveIcon: {
@@ -21,6 +22,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: "#ffffff"
     },
     package: "com.hiteshjoshi.tracker",
+    googleServicesFile: "./google-services.json",
+    versionCode: 1 ,
         // Add this if not present
         intentFilters: [
             {
@@ -43,6 +46,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    "@react-native-google-signin/google-signin",
     [
       "expo-splash-screen",
       {
