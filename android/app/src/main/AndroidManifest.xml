@@ -24,13 +24,13 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="com.hiteshjoshi.tracker"/>
+        <data android:scheme="tracker"/>
         <data android:scheme="com.hiteshjoshi.tracker"/>
         <data android:scheme="exp+tracker"/>
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="com.hiteshjoshi.tracker"/>
+        <data android:scheme="com.hiteshjoshi.tracker" android:host="oauth2redirect"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
