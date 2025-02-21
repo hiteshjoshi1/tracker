@@ -1,3 +1,4 @@
+//app.config.ts
 import { ExpoConfig, ConfigContext } from 'expo/config';
 import 'dotenv/config';
 
@@ -9,11 +10,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/images/icon.png",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
-  scheme: "com.hiteshjoshi.tracker", // Only define scheme once here
+  scheme: "tracker", // Only define scheme once here
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.hiteshjoshi.tracker", // Add this
-    // googleServicesFile: "./GoogleService-Info.plist", // Add this if using Firebase
+    googleServicesFile: "./GoogleService-Info.plist", // Add this if using Firebase
   },
   android: {
     adaptiveIcon: {
@@ -21,6 +22,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: "#ffffff"
     },
     package: "com.hiteshjoshi.tracker",
+    googleServicesFile: "./google-services.json",
+    versionCode: 1 ,
         // Add this if not present
         intentFilters: [
             {
@@ -28,7 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
               autoVerify: true,
               data: [
                 {
-                  scheme: "com.hiteshjoshi.tracker"
+                  scheme: "com.hiteshjoshi.tracker",
+                  host: "oauth2redirect"
                 }
               ],
               category: ["BROWSABLE", "DEFAULT"]
@@ -41,18 +45,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     output: "static",
     favicon: "./assets/images/favicon.png",
   },
-  plugins: [
-    "expo-router",
-    [
-      "expo-splash-screen",
-      {
-        "image": "./assets/images/splash-icon.png",
-        "imageWidth": 200,
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff"
-      }
-    ]
-  ],
   experiments: {
     typedRoutes: true
   },
@@ -65,6 +57,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     firebaseAppId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
     eas: {
       projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID
-    }
+    },
+    enableDebugLogging: true
   }
 });
