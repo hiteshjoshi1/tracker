@@ -18,7 +18,7 @@ import { BaseItem, Goal, GoodDeed, Reflection, CollectionType } from '../models/
 import { startOfDay, endOfDay } from 'date-fns';
 
 export class FirebaseService<T extends BaseItem> {
-  private collectionRef;
+  protected collectionRef;
 
   constructor(collectionName: CollectionType) {
     this.collectionRef = collection(db, collectionName);

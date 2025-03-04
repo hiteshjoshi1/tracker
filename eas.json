@@ -1,8 +1,13 @@
 {
     "build": {
         "preview": {
+            "distribution": "internal",
             "android": {
-              "buildType": "apk"
+              "gradleCommand": ":app:assembleDebug",
+              "buildType": "apk",
+              "env": {
+                "GOOGLE_SERVICES_JSON_PATH": "./android/app/google-services.json"
+              }
             }
           },
           "development": {
@@ -10,14 +15,17 @@
             "distribution": "internal",
             "android": {
               "gradleCommand": ":app:assembleDebug",
-              "buildType": "apk"
+              "buildType": "apk",
+              "env": {
+                "GOOGLE_SERVICES_JSON_PATH": "./android/app/google-services.json"
+              }
             }
           },
       "production": {
         "distribution": "store",
         "android": {
           "buildType": "apk",
-          "withoutCredentials": false
+          "gradleCommand": ":app:assembleDebug"
         },
         "prebuildCommand": "./node_modules/.bin/expo prebuild"
       }
