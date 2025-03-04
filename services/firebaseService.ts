@@ -1,3 +1,4 @@
+//services/firebaseService.ts
 import { db } from '../config/firebase';
 import { 
   collection, 
@@ -11,22 +12,24 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
-  QueryConstraint
+  QueryConstraint,
 } from 'firebase/firestore';
 import { BaseItem, Goal, GoodDeed, Reflection, CollectionType } from '../models/types';
+import { startOfDay, endOfDay } from 'date-fns';
 
 export class FirebaseService<T extends BaseItem> {
-  private collectionRef;
+  protected collectionRef;
 
   constructor(collectionName: CollectionType) {
     this.collectionRef = collection(db, collectionName);
   }
 
-  // Generic add item method
-  async addItem(userId: string, data: Partial<T>): Promise<string> {
+  // Generic add item method with date support
+  async addItem(userId: string, data: Partial<T>, date: Date = new Date()): Promise<string> {
     const docRef = await addDoc(this.collectionRef, {
       ...data,
       userId,
+      date: Timestamp.fromDate(date),  // Store the specific date for the item
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -48,6 +51,28 @@ export class FirebaseService<T extends BaseItem> {
     await deleteDoc(docRef);
   }
 
+  // Get items for a specific date
+  async getItemsByDate(userId: string, date: Date, additionalQueries: QueryConstraint[] = []): Promise<T[]> {
+    // Create Firestore timestamps for start and end of the selected day
+    const dayStart = Timestamp.fromDate(startOfDay(date));
+    const dayEnd = Timestamp.fromDate(endOfDay(date));
+    
+    // Query for items on the specific date
+    const baseQuery = [
+      where("userId", "==", userId),
+      where("date", ">=", dayStart),
+      where("date", "<=", dayEnd)
+    ];
+    
+    const q = query(this.collectionRef, ...baseQuery, ...additionalQueries);
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...this.convertTimestamps(doc.data())
+    } as T));
+  }
+
   // Generic get items method with optional additional queries
   async getUserItems(userId: string, additionalQueries: QueryConstraint[] = []): Promise<T[]> {
     const baseQuery = where("userId", "==", userId);
@@ -58,6 +83,35 @@ export class FirebaseService<T extends BaseItem> {
       id: doc.id,
       ...this.convertTimestamps(doc.data())
     } as T));
+  }
+
+  // Real-time subscription for a specific date
+  subscribeToItemsByDate(
+    userId: string,
+    date: Date,
+    onUpdate: (items: T[]) => void,
+    additionalQueries: QueryConstraint[] = []
+  ): () => void {
+    // Create Firestore timestamps for start and end of the selected day
+    const dayStart = Timestamp.fromDate(startOfDay(date));
+    const dayEnd = Timestamp.fromDate(endOfDay(date));
+    
+    // Query for items on the specific date
+    const baseQuery = [
+      where("userId", "==", userId),
+      where("date", ">=", dayStart),
+      where("date", "<=", dayEnd)
+    ];
+    
+    const q = query(this.collectionRef, ...baseQuery, ...additionalQueries);
+    
+    return onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...this.convertTimestamps(doc.data())
+      } as T));
+      onUpdate(items);
+    });
   }
 
   // Generic real-time subscription
@@ -79,7 +133,7 @@ export class FirebaseService<T extends BaseItem> {
   }
 
   // Helper method to convert Firestore Timestamps to Dates
-  private convertTimestamps(data: any): any {
+  protected convertTimestamps(data: any): any {
     const converted = { ...data };
     Object.keys(converted).forEach(key => {
       if (converted[key] instanceof Timestamp) {
@@ -99,6 +153,31 @@ export class GoalService extends FirebaseService<Goal> {
   // Goal-specific method
   async toggleCompletion(goalId: string, completed: boolean): Promise<void> {
     await this.updateItem(goalId, { completed });
+  }
+  
+  // Get expired incomplete goals (for highlighting in red)
+  async getExpiredGoals(userId: string, currentDate: Date): Promise<Goal[]> {
+    // Get all goals that are:
+    // 1. Not completed
+    // 2. Have a date earlier than the current date
+    const yesterday = new Date(currentDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(23, 59, 59, 999);
+    
+    const expiredTimestamp = Timestamp.fromDate(yesterday);
+    
+    const q = query(
+      this.collectionRef,
+      where("userId", "==", userId),
+      where("completed", "==", false),
+      where("date", "<", expiredTimestamp)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...this.convertTimestamps(doc.data())
+    } as Goal));
   }
 }
 

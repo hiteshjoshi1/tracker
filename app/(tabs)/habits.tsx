@@ -1,3 +1,4 @@
+//app/(tabs)/habits.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -254,15 +255,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 16,
+    padding: 0,
   },
   addButton: {
     backgroundColor: '#2c3e50',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    marginHorizontal: 16, // Added horizontal margin
+    marginTop: 16, // Added top margin to create space after DateHeader
     marginBottom: 16,
-  },
+},
   addButtonText: {
     color: '#fff',
     fontSize: 16,
@@ -323,7 +326,8 @@ const styles = StyleSheet.create({
   },
   habitsList: {
     gap: 12,
-  },
+    paddingHorizontal: 16, // Added horizontal padding
+},
   habitCard: {
     backgroundColor: '#f8f9fa',
     padding: 16,

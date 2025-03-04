@@ -2,7 +2,7 @@
 
 // app/config/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
+import { initializeFirestore,memoryLocalCache, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { 
@@ -26,13 +26,23 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore
-const db = initializeFirestore(app, {
-  experimentalForceLongPolling: Platform.OS === 'android',
-  localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager({ forceOwnership: true })
-  })
-});
+let cacheConfig;
+try {
+  cacheConfig = {
+    experimentalForceLongPolling: Platform.OS === 'android',
+    localCache: persistentLocalCache({
+      tabManager: persistentSingleTabManager({ forceOwnership: true })
+    })
+  };
+} catch (e) {
+  console.log('Falling back to memory cache for Firestore');
+  cacheConfig = {
+    experimentalForceLongPolling: Platform.OS === 'android',
+    localCache: memoryLocalCache()
+  };
+}
+
+const db = initializeFirestore(app, cacheConfig);
 
 // Initialize Auth based on platform
 const auth = Platform.OS === 'web' 

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+//app/(tabs)/index.tsx
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     ScrollView,
     TouchableOpacity,
     Platform,
@@ -11,135 +11,181 @@ import {
     TextInput,
 } from 'react-native';
 import DateHeader from '../../components/DateHeader';
-import { LinearGradient } from 'expo-linear-gradient';
+import { isToday, isBefore, isSameDay } from 'date-fns';
 
 import { goalService, goodDeedService, reflectionService } from '../../services/firebaseService';
 import { auth } from '../../config/firebase';
+import styles from '../../styles/TodayScreenStyles';
 
-
-// Types remain the same
+// Types
 interface Goal {
     id: string;
     text: string;
     completed: boolean;
+    date?: Date;
+    isExpired?: boolean;
 }
 
-// Add this interface
 interface ModalConfig {
     isVisible: boolean;
     initialText: string;
     editId: string | null;
 }
+
 interface GoodnessItem {
     id: string;
     text: string;
     timestamp: Date;
+    date?: Date;
 }
 
+interface ReflectionItem {
+    id: string;
+    text: string;
+    timestamp: Date;
+    date?: Date;
+}
 
 const TodayScreen: React.FC = () => {
-
-    // goals
+    // State for selected date
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    
+    // Data states
     const [goals, setGoals] = useState<Goal[]>([]);
+    const [goodnessItems, setGoodnessItems] = useState<GoodnessItem[]>([]);
+    const [reflectionItems, setReflectionItems] = useState<ReflectionItem[]>([]);
+    
+    // Modal states
     const [goalModalVisible, setGoalModalVisible] = useState<ModalConfig>({
         isVisible: false,
         initialText: '',
         editId: null
     });
-    const [newGoalText, setNewGoalText] = useState('');
-
-
-    //goodness
-    const [goodnessText, setGoodnessText] = useState('');
-    const [goodnessItems, setGoodnessItems] = useState<GoodnessItem[]>([]);
-
     const [goodnessModalVisible, setGoodnessModalVisible] = useState<ModalConfig>({
         isVisible: false,
         initialText: '',
-        editId: null, // Add this to track which item is being edited
+        editId: null,
     });
-
-    // reflection
-    interface ReflectionItem {
-        id: string;
-        text: string;
-        timestamp: Date;
-    }
-
-    // Update the state to handle an array of items
-    const [reflectionItems, setReflectionItems] = useState<ReflectionItem[]>([]);
     const [reflectionModalVisible, setReflectionModalVisible] = useState<ModalConfig>({
         isVisible: false,
         initialText: '',
         editId: null,
     });
+    
+    // Input states
+    const [newGoalText, setNewGoalText] = useState('');
+    const [goodnessText, setGoodnessText] = useState('');
     const [reflectionText, setReflectionText] = useState('');
+    
+    // Track if component is mounted to prevent state updates after unmount
+    const isMounted = useRef(true);
+    
+    // Track active user
+    const [userId, setUserId] = useState<string | null>(null);
 
-
+    // Set up authentication listener only once
     useEffect(() => {
-        const userId = auth.currentUser?.uid;
-        if (!userId) {
-            console.log('No user logged in');
-            return;
-        }
-
-        // Subscribe to real-time updates
-        const unsubscribe = goalService.subscribeToUserItems(userId, (updatedGoals) => {
-            setGoals(updatedGoals);
+        // Set mounted flag
+        isMounted.current = true;
+        
+        // Check if user is logged in
+        const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+            if (isMounted.current) {
+                if (user) {
+                    setUserId(user.uid);
+                } else {
+                    setUserId(null);
+                }
+            }
         });
-
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
+        
+        // Cleanup
+        return () => {
+            isMounted.current = false;
+            unsubscribeAuth();
+        };
     }, []);
 
+    // Fetch data when user or date changes
+    useEffect(() => {
+        if (!userId) return;
+        
+        // Fetch data for the selected date
+        fetchDataForDate(selectedDate);
+    }, [userId, selectedDate]);
 
+    // Function to fetch all data for a specific date
+    const fetchDataForDate = useCallback(async (date: Date) => {
+        if (!userId || !isMounted.current) return;
+        
+        try {
+            // Fetch goals
+            const goalsForDate = await goalService.getItemsByDate(userId, date);
+            
+            // Mark expired goals
+            if (isBefore(date, new Date()) && !isToday(date)) {
+                if (isMounted.current) {
+                    setGoals(goalsForDate.map(goal => ({
+                        ...goal,
+                        isExpired: !goal.completed
+                    })));
+                }
+            } else {
+                if (isMounted.current) {
+                    setGoals(goalsForDate);
+                }
+            }
+            
+            // Fetch good deeds
+            const deedsForDate = await goodDeedService.getItemsByDate(userId, date);
+            if (isMounted.current) {
+                setGoodnessItems(deedsForDate);
+            }
+            
+            // Fetch reflections
+            const reflectionsForDate = await reflectionService.getItemsByDate(userId, date);
+            if (isMounted.current) {
+                setReflectionItems(reflectionsForDate);
+            }
+        } catch (error) {
+            console.error('Error fetching data for date:', error);
+        }
+    }, [userId]);
 
-    // Functions remain the same
+    // Handle date change from the DateHeader component
+    const handleDateChange = useCallback((date: Date) => {
+        setSelectedDate(date);
+    }, []);
+
+    // Calculate progress percentage
+    const getProgressPercentage = useCallback(() => {
+        if (goals.length === 0) return 0;
+        const completedGoals = goals.filter(goal => goal.completed).length;
+        return (completedGoals / goals.length) * 100;
+    }, [goals]);
+
+    // Goal functions
     const toggleGoal = async (id: string) => {
+        if (!userId) return;
+        
         try {
             const goal = goals.find(g => g.id === id);
             if (goal) {
                 await goalService.toggleCompletion(id, !goal.completed);
+                
+                // Update local state
+                setGoals(prevGoals => 
+                    prevGoals.map(g => 
+                        g.id === id ? { ...g, completed: !goal.completed } : g
+                    )
+                );
             }
         } catch (error) {
             console.error('Error toggling goal:', error);
-            // You might want to show an error message to the user here
         }
     };
 
-
-    const getProgressPercentage = () => {
-        if (goals.length === 0) return 0;
-        const completedGoals = goals.filter(goal => goal.completed).length;
-        return (completedGoals / goals.length) * 100;
-    };
-
-
-    // goal functions
-    // const handleAddGoal = () => {
-    //     if (newGoalText.trim()) {
-    //         if (goalModalVisible.editId) {
-    //             // Editing existing goal
-    //             setGoals(goals.map(goal =>
-    //                 goal.id === goalModalVisible.editId
-    //                     ? { ...goal, text: newGoalText.trim() }
-    //                     : goal
-    //             ));
-    //         } else {
-    //             // Adding new goal
-    //             const newGoal: Goal = {
-    //                 id: Date.now().toString(),
-    //                 text: newGoalText.trim(),
-    //                 completed: false,
-    //             };
-    //             setGoals([...goals, newGoal]);
-    //         }
-    //         handleCloseGoalModal();
-    //     }
-    // };
-  
     const handleAddGoal = async () => {
-        const userId = auth.currentUser?.uid;
         if (!userId || !newGoalText.trim()) return;
 
         try {
@@ -148,20 +194,37 @@ const TodayScreen: React.FC = () => {
                 await goalService.updateItem(goalModalVisible.editId, {
                     text: newGoalText.trim()
                 });
+                
+                // Update local state
+                setGoals(prevGoals => 
+                    prevGoals.map(goal => 
+                        goal.id === goalModalVisible.editId
+                            ? { ...goal, text: newGoalText.trim() }
+                            : goal
+                    )
+                );
             } else {
-                // Adding new goal
-                await goalService.addItem(userId, {
+                // Adding new goal for the selected date
+                const newGoalId = await goalService.addItem(userId, {
                     text: newGoalText.trim(),
                     completed: false
-                });
+                }, selectedDate);
+                
+                // Add to local state
+                setGoals(prevGoals => [...prevGoals, {
+                    id: newGoalId,
+                    text: newGoalText.trim(),
+                    completed: false,
+                    date: selectedDate
+                }]);
             }
+            
+            // Close modal and clear text
             handleCloseGoalModal();
         } catch (error) {
             console.error('Error managing goal:', error);
-            // Handle error appropriately (show error message to user)
         }
     };
-
 
     const handleOpenGoalModal = (itemId?: string) => {
         if (itemId) {
@@ -187,7 +250,49 @@ const TodayScreen: React.FC = () => {
         setNewGoalText('');
     };
 
-    // goodness function
+    // Goodness functions
+    const handleAddGoodness = async () => {
+        if (!userId || !goodnessText.trim()) return;
+
+        try {
+            if (goodnessModalVisible.editId) {
+                // Editing existing item
+                await goodDeedService.updateItem(goodnessModalVisible.editId, {
+                    text: goodnessText.trim()
+                });
+                
+                // Update local state
+                setGoodnessItems(prevItems => 
+                    prevItems.map(item => 
+                        item.id === goodnessModalVisible.editId
+                            ? { ...item, text: goodnessText.trim() }
+                            : item
+                    )
+                );
+            } else {
+                // Adding new item for the selected date
+                const now = new Date();
+                const newItemId = await goodDeedService.addItem(userId, {
+                    text: goodnessText.trim(),
+                    timestamp: now
+                }, selectedDate);
+                
+                // Add to local state
+                setGoodnessItems(prevItems => [...prevItems, {
+                    id: newItemId,
+                    text: goodnessText.trim(),
+                    timestamp: now,
+                    date: selectedDate
+                }]);
+            }
+            
+            // Close modal and clear text
+            handleCloseGoodnessModal();
+        } catch (error) {
+            console.error('Error managing good deed:', error);
+        }
+    };
+
     const handleOpenGoodnessModal = (itemId?: string) => {
         if (itemId) {
             const itemToEdit = goodnessItems.find(item => item.id === itemId);
@@ -212,52 +317,46 @@ const TodayScreen: React.FC = () => {
         setGoodnessText('');
     };
 
-    const handleAddGoodness = () => {
-        if (goodnessText.trim()) {
-            if (goodnessModalVisible.editId) {
-                // Editing existing item
-                setGoodnessItems(prevItems =>
-                    prevItems.map(item =>
-                        item.id === goodnessModalVisible.editId
-                            ? { ...item, text: goodnessText.trim() }
-                            : item
-                    )
-                );
-            } else {
-                // Adding new item
-                const newItem = {
-                    id: Date.now().toString(),
-                    text: goodnessText.trim(),
-                    timestamp: new Date(),
-                };
-                setGoodnessItems(prevItems => [...prevItems, newItem]);
-            }
-            handleCloseGoodnessModal();
-        }
-    };
+    // Reflection functions
+    const handleAddReflection = async () => {
+        if (!userId || !reflectionText.trim()) return;
 
-    //reflection functions
-    const handleAddReflection = () => {
-        if (reflectionText.trim()) {
+        try {
             if (reflectionModalVisible.editId) {
                 // Editing existing item
-                setReflectionItems(prevItems =>
-                    prevItems.map(item =>
+                await reflectionService.updateItem(reflectionModalVisible.editId, {
+                    text: reflectionText.trim()
+                });
+                
+                // Update local state
+                setReflectionItems(prevItems => 
+                    prevItems.map(item => 
                         item.id === reflectionModalVisible.editId
                             ? { ...item, text: reflectionText.trim() }
                             : item
                     )
                 );
             } else {
-                // Adding new item
-                const newItem: ReflectionItem = {
-                    id: Date.now().toString(),
+                // Adding new item for the selected date
+                const now = new Date();
+                const newItemId = await reflectionService.addItem(userId, {
                     text: reflectionText.trim(),
-                    timestamp: new Date(),
-                };
-                setReflectionItems(prevItems => [...prevItems, newItem]);
+                    timestamp: now
+                }, selectedDate);
+                
+                // Add to local state
+                setReflectionItems(prevItems => [...prevItems, {
+                    id: newItemId,
+                    text: reflectionText.trim(),
+                    timestamp: now,
+                    date: selectedDate
+                }]);
             }
+            
+            // Close modal and clear text
             handleCloseReflectionModal();
+        } catch (error) {
+            console.error('Error managing reflection:', error);
         }
     };
 
@@ -285,39 +384,20 @@ const TodayScreen: React.FC = () => {
         setReflectionText('');
     };
 
-
-
-
     return (
         <ScrollView style={styles.container}>
-            <LinearGradient
-                colors={['#4a90e2', '#357abd']}
-                style={styles.header}
-            >
-                <DateHeader />
-                <View style={styles.progressContainer}>
-                    <View style={styles.progressBar}>
-                        <View
-                            style={[
-                                styles.progressFill,
-                                { width: `${getProgressPercentage()}%` }
-                            ]}
-                        />
-                    </View>
-                    <Text style={styles.progressText}>
-                        {Math.round(getProgressPercentage())}% of daily goals completed
-                    </Text>
-                </View>
-            </LinearGradient>
-
+            <DateHeader 
+    onDateChange={handleDateChange}
+    progressPercentage={getProgressPercentage()}
+/>
 
             <View style={styles.content}>
-                {/* Goals Section start */}
-                {/* What good shall I do today Section */}
-
+                {/* Goals Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Today's Goals</Text>
+                        <Text style={styles.sectionTitle}>
+                            {isToday(selectedDate) ? "Today's Goals" : `Goals for ${selectedDate.toLocaleDateString()}`}
+                        </Text>
                         <TouchableOpacity
                             style={styles.addButton}
                             onPress={() => handleOpenGoalModal()}
@@ -327,7 +407,13 @@ const TodayScreen: React.FC = () => {
                     </View>
                     {goals.length > 0 ? (
                         goals.map(goal => (
-                            <View key={goal.id} style={styles.goalItem}>
+                            <View 
+                                key={goal.id} 
+                                style={[
+                                    styles.goalItem,
+                                    goal.isExpired && styles.expiredGoalItem
+                                ]}
+                            >
                                 <TouchableOpacity
                                     style={[
                                         styles.checkboxContainer,
@@ -341,7 +427,8 @@ const TodayScreen: React.FC = () => {
                                 </TouchableOpacity>
                                 <Text style={[
                                     styles.goalText,
-                                    goal.completed && styles.completedGoal
+                                    goal.completed && styles.completedGoal,
+                                    goal.isExpired && styles.expiredGoalText
                                 ]}>
                                     {goal.text}
                                 </Text>
@@ -355,18 +442,21 @@ const TodayScreen: React.FC = () => {
                         ))
                     ) : (
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No goals yet</Text>
-                            <Text style={styles.emptySubtext}>Tap + to add your first goal</Text>
+                            <Text style={styles.emptyText}>No goals for this date</Text>
+                            <Text style={styles.emptySubtext}>Tap + to add a goal</Text>
                         </View>
                     )}
                 </View>
 
-                {/* Goals Section end */}
-
                 {/* Goodness Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>What good shall I do today?</Text>
+                        <Text style={styles.sectionTitle}>
+                            {isToday(selectedDate) 
+                                ? "What good shall I do today?" 
+                                : `Good deeds for ${selectedDate.toLocaleDateString()}`
+                            }
+                        </Text>
                         <TouchableOpacity
                             style={styles.addButton}
                             onPress={() => handleOpenGoodnessModal()}
@@ -381,7 +471,7 @@ const TodayScreen: React.FC = () => {
                                     <View style={styles.goodnessContent}>
                                         <Text style={styles.contentText}>{item.text}</Text>
                                         <Text style={styles.timestampText}>
-                                            {new Date(item.timestamp).toLocaleTimeString([], {
+                                            {item.timestamp && new Date(item.timestamp).toLocaleTimeString([], {
                                                 hour: '2-digit',
                                                 minute: '2-digit'
                                             })}
@@ -398,17 +488,26 @@ const TodayScreen: React.FC = () => {
                         </View>
                     ) : (
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>What good will you do today?</Text>
-                            <Text style={styles.emptySubtext}>Tap + to add your first good deed</Text>
+                            <Text style={styles.emptyText}>
+                                {isToday(selectedDate) 
+                                    ? "What good will you do today?" 
+                                    : "No good deeds recorded for this date"
+                                }
+                            </Text>
+                            <Text style={styles.emptySubtext}>Tap + to add a good deed</Text>
                         </View>
                     )}
                 </View>
-                {/* Goodness Section end */}
 
                 {/* Reflection Section */}
                 <View style={[styles.section, styles.reflectionSection]}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Today's Reflections</Text>
+                        <Text style={styles.sectionTitle}>
+                            {isToday(selectedDate) 
+                                ? "Today's Reflections" 
+                                : `Reflections for ${selectedDate.toLocaleDateString()}`
+                            }
+                        </Text>
                         <TouchableOpacity
                             style={styles.addButton}
                             onPress={() => handleOpenReflectionModal()}
@@ -423,7 +522,7 @@ const TodayScreen: React.FC = () => {
                                     <View style={styles.reflectionContent}>
                                         <Text style={styles.contentText}>{item.text}</Text>
                                         <Text style={styles.timestampText}>
-                                            {new Date(item.timestamp).toLocaleTimeString([], {
+                                            {item.timestamp && new Date(item.timestamp).toLocaleTimeString([], {
                                                 hour: '2-digit',
                                                 minute: '2-digit'
                                             })}
@@ -440,19 +539,25 @@ const TodayScreen: React.FC = () => {
                         </View>
                     ) : (
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No reflections yet</Text>
-                            <Text style={styles.emptySubtext}>Take a moment to reflect on your day</Text>
+                            <Text style={styles.emptyText}>
+                                {isToday(selectedDate) 
+                                    ? "No reflections yet" 
+                                    : "No reflections recorded for this date"
+                                }
+                            </Text>
+                            <Text style={styles.emptySubtext}>
+                                {isToday(selectedDate)
+                                    ? "Take a moment to reflect on your day"
+                                    : "Tap + to add a reflection"
+                                }
+                            </Text>
                         </View>
                     )}
                 </View>
-                {/* Reflection Section end */}
-
             </View>
 
-
-
-            {/* Modals start here        */}
-            {/* Goal Modal start here        */}
+            {/* Modals */}
+            {/* Goal Modal */}
             <Modal
                 visible={goalModalVisible.isVisible}
                 transparent
@@ -491,10 +596,8 @@ const TodayScreen: React.FC = () => {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
-            {/* Goal Modal end here        */}
 
-            {/* Goodness modal         */}
-
+            {/* Goodness Modal */}
             <Modal
                 visible={goodnessModalVisible.isVisible}
                 transparent
@@ -531,7 +634,10 @@ const TodayScreen: React.FC = () => {
                                     style={styles.modalInput}
                                     value={goodnessText}
                                     onChangeText={setGoodnessText}
-                                    placeholder="What good will you do today?"
+                                    placeholder={isToday(selectedDate)
+                                        ? "What good will you do today?"
+                                        : "What good deed did you do on this day?"
+                                    }
                                     multiline
                                     autoFocus
                                     placeholderTextColor="#95a5a6"
@@ -556,9 +662,8 @@ const TodayScreen: React.FC = () => {
                     </KeyboardAvoidingView>
                 </TouchableOpacity>
             </Modal>
-            {/* Goodness modal end */}
 
-            {/* reflection modal */}
+            {/* Reflection Modal */}
             <Modal
                 visible={reflectionModalVisible.isVisible}
                 transparent
@@ -577,7 +682,10 @@ const TodayScreen: React.FC = () => {
                             style={[styles.modalInput, { minHeight: 100 }]}
                             value={reflectionText}
                             onChangeText={setReflectionText}
-                            placeholder="Write your reflection..."
+                            placeholder={isToday(selectedDate)
+                                ? "Write your reflection..."
+                                : `Write your reflection for ${selectedDate.toLocaleDateString()}...`
+                            }
                             multiline
                             autoFocus
                         />
@@ -598,314 +706,8 @@ const TodayScreen: React.FC = () => {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
-
         </ScrollView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f5f6fa',
-    },
-    header: {
-        padding: 20,
-        paddingTop: Platform.OS === 'ios' ? 60 : 20,
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.2,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 8,
-            },
-        }),
-    },
-    progressContainer: {
-        marginTop: 16,
-    },
-    progressBar: {
-        height: 6,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        borderRadius: 3,
-        overflow: 'hidden',
-    },
-    progressFill: {
-        height: '100%',
-        backgroundColor: '#fff',
-        borderRadius: 3,
-    },
-    progressText: {
-        color: '#fff',
-        fontSize: 14,
-        marginTop: 8,
-        textAlign: 'center',
-    },
-    content: {
-        padding: 20,
-    },
-    section: {
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        marginBottom: 20,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
-            },
-            android: {
-                elevation: 4,
-            },
-        }),
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#1a1a1a',
-    },
-    addButton: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: '#4a90e2',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    addButtonText: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '600',
-        marginTop: -2,
-    },
-    editButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        backgroundColor: '#f0f0f0',
-    },
-    editButtonText: {
-        color: '#4a90e2',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    goalItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    checkboxContainer: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: '#4a90e2',
-        marginRight: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    checkboxContainerChecked: {
-        backgroundColor: '#4a90e2',
-        borderColor: '#4a90e2',
-    },
-    checkmark: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    goalText: {
-        fontSize: 16,
-        color: '#1a1a1a',
-        flex: 1,
-    },
-    completedGoal: {
-        textDecorationLine: 'line-through',
-        color: '#95a5a6',
-    },
-    cardContent: {
-        padding: 16,
-    },
-    contentText: {
-        fontSize: 16,
-        color: '#1a1a1a',
-        lineHeight: 24,
-    },
-    quoteIcon: {
-        fontSize: 40,
-        color: '#4a90e2',
-        opacity: 0.2,
-        position: 'absolute',
-        top: -5,
-        left: 10,
-    },
-    emptyContainer: {
-        padding: 24,
-        alignItems: 'center',
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#95a5a6',
-        marginBottom: 4,
-    },
-    emptySubtext: {
-        fontSize: 14,
-        color: '#bdc3c7',
-    },
-    reflectionSection: {
-        backgroundColor: '#fff',
-    },
-    modalContainer: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        padding: 20,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: -2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
-            },
-            android: {
-                elevation: 4,
-            },
-        }),
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 16,
-        color: '#1a1a1a',
-    },
-    modalInput: {
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        minHeight: 40,
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        marginTop: 16,
-        gap: 12,
-    },
-    modalButton: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 8,
-        minWidth: 80,
-        alignItems: 'center',
-    },
-    cancelButton: {
-        backgroundColor: '#f0f0f0',
-    },
-    saveButton: {
-        backgroundColor: '#4a90e2',
-    },
-    cancelButtonText: {
-        color: '#4a90e2',
-        fontWeight: '600',
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-    },
-    goodnessList: {
-        padding: 16,
-    },
-    goodnessItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    goodnessContent: {
-        flex: 1,
-        marginRight: 12,
-    },
-    editItemButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        backgroundColor: '#f0f0f0',
-    },
-    timestampText: {
-        fontSize: 12,
-        color: '#95a5a6',
-        marginTop: 4,
-    }, reflectionList: {
-        padding: 16,
-    },
-    reflectionItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    reflectionContent: {
-        flex: 1,
-        marginRight: 12,
-    },
-    goodnessItemHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 12,
-        backgroundColor: '#f8f9fa',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalFooter: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 12,
-    },
-    closeButton: {
-        padding: 8,
-    },
-    closeButtonText: {
-        fontSize: 20,
-        color: '#95a5a6',
-        fontWeight: '500',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    }
-
-});
 
 export default TodayScreen;

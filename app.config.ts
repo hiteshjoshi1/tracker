@@ -31,8 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
               autoVerify: true,
               data: [
                 {
-                  scheme: "com.hiteshjoshi.tracker",
-                  host: "oauth2redirect"
+                  scheme: "tracker",
+                  host: "*"
                 }
               ],
               category: ["BROWSABLE", "DEFAULT"]
