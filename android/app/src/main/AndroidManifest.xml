@@ -30,7 +30,7 @@
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="com.hiteshjoshi.tracker" android:host="oauth2redirect"/>
+        <data android:scheme="tracker" android:host="*"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>

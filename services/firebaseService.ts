@@ -3,6 +3,7 @@ import { db } from '../config/firebase';
 import { 
   collection, 
   doc, 
+  getDoc,
   getDocs, 
   addDoc, 
   updateDoc, 
@@ -50,6 +51,22 @@ export class FirebaseService<T extends BaseItem> {
     const docRef = doc(this.collectionRef, itemId);
     await deleteDoc(docRef);
   }
+
+   // Get document by ID
+   async getDocById(itemId: string): Promise<T | null> {
+    const docRef = doc(this.collectionRef, itemId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...this.convertTimestamps(docSnap.data())
+      } as T;
+    }
+    
+    return null;
+  }
+
 
   // Get items for a specific date
   async getItemsByDate(userId: string, date: Date, additionalQueries: QueryConstraint[] = []): Promise<T[]> {
