@@ -4,9 +4,14 @@ Tracker app
 2. Firebase
 3. Google Auth
 
+
 Build locally and test
+npx expo run:android 
 
 
+
+To clean and rebuild
+npx expo prebuild --clean && npx expo run:android
 
 Build for device (apk)
 - expo always has googleservices.json issue for local as well as remote

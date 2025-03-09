@@ -1,123 +1,169 @@
-//app/(tabs)/habits.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
+  Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import DateHeader from '../../components/DateHeader';
+import AddHabitModal from '../../components/AddHabitModal';
+import HabitDayIndicator from '../../components/HabitDayIndicator';
+import { habitService } from '../../services/habitService';
+import { Habit } from '../../models/types';
+import { format, isToday, parseISO, isSameDay, addDays, subDays } from 'date-fns';
+import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
-interface WeekDay {
-  date: number;
-  day: string;
-  isToday: boolean;
-}
-
-interface Habit {
-  id: string;
-  name: string;
-  status: 'completed' | 'failed' | 'untracked';
-  streak: number;
-  lastCompleted: Date | null;
-}
+const DAYS_OF_WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 const HabitsScreen: React.FC = () => {
-  const [habits, setHabits] = useState<Habit[]>([
-    {
-      id: '1',
-      name: 'Morning Meditation',
-      status: 'completed',
-      streak: 5,
-      lastCompleted: new Date(),
-    },
-    {
-      id: '2',
-      name: 'Reading',
-      status: 'failed',
-      streak: 0,
-      lastCompleted: null,
-    },
-    {
-      id: '3',
-      name: 'Exercise',
-      status: 'untracked',
-      streak: 3,
-      lastCompleted: new Date(),
-    },
-  ]);
-
-  const [newHabit, setNewHabit] = useState('');
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [isAddingHabit, setIsAddingHabit] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { userInfo } = useAuth(); // Access the current user from auth context
+  const { scheduleDailyReminder, cancelReminder, rescheduleAllReminders } = useNotifications(); // Add this line
 
-  const isTrackedToday = (habit: Habit) => {
+  useEffect(() => {
+    if (userInfo?.uid) {
+      loadHabits();
+
+      // Set up real-time listener for habit changes
+      const unsubscribe = habitService.subscribeToUserItems(
+        userInfo.uid,
+        (updatedHabits) => {
+          setHabits(updatedHabits);
+          setIsLoading(false);
+        }
+      );
+
+      // Clean up listener on unmount
+      return () => unsubscribe();
+    }
+  }, [userInfo]);
+
+  const loadHabits = async () => {
+    if (!userInfo?.uid) return;
+
+    try {
+      setIsLoading(true);
+      const userHabits = await habitService.getUserHabits(userInfo.uid);
+      setHabits(userHabits);
+    } catch (error) {
+      console.error('Error loading habits:', error);
+      Alert.alert('Error', 'Failed to load habits. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddHabit = async (habitData: Partial<Habit>): Promise<string> => {
+    if (!userInfo?.uid) throw new Error("User not logged in");
+
+    try {
+      // Add the habit to the database
+      const habitId = await habitService.addHabit(userInfo.uid, habitData);
+      
+      // Note: We don't need to manually schedule notifications here anymore
+      // The AddHabitModal component will handle that with useNotifications hook
+      
+      return habitId;
+    } catch (error) {
+      console.error('Error adding habit:', error);
+      Alert.alert('Error', 'Failed to add habit. Please try again.');
+      throw error;
+    }
+  };
+
+  // Handle editing a habit (if you implement an edit feature)
+  const handleEditHabit = async (habitId: string, updates: Partial<Habit>) => {
+    try {
+      await habitService.updateHabit(habitId, updates);
+      
+      // If reminder time or days changed, update notifications
+      if ('reminderTime' in updates || 'reminderDays' in updates) {
+        // Get the updated habit
+        const updatedHabit = habits.find(h => h.id === habitId);
+        if (updatedHabit) {
+          // Cancel existing notifications
+          await cancelReminder(habitId);
+          
+          // Schedule new notifications if there's a reminder time
+          if (updatedHabit.reminderTime) {
+            await scheduleDailyReminder(updatedHabit);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating habit:', error);
+      Alert.alert('Error', 'Failed to update habit. Please try again.');
+    }
+  };
+
+  const updateHabitStatus = async (
+    habit: Habit,
+    newStatus: 'completed' | 'failed' | 'untracked',
+    date: Date = selectedDate // Use selectedDate as default, allowing custom date parameter
+  ) => {
+    try {
+      await habitService.updateHabitStatusForDate(habit.id, newStatus, date, habit);
+    } catch (error) {
+      console.error('Error updating habit status:', error);
+      Alert.alert('Error', 'Failed to update habit status. Please try again.');
+    }
+  };
+
+  // Handle deleting a habit (if you implement a delete feature)
+  const handleDeleteHabit = async (habitId: string) => {
+    try {
+      // Cancel notifications first
+      await cancelReminder(habitId);
+      
+      // Then delete the habit
+      await habitService.deleteHabit(habitId);
+    } catch (error) {
+      console.error('Error deleting habit:', error);
+      Alert.alert('Error', 'Failed to delete habit. Please try again.');
+    }
+  };
+
+  const isTrackedOnDate = (habit: Habit, date: Date = selectedDate) => {
+    // Check completion history first if available
+    if (habit.completionHistory) {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      return habit.completionHistory[dateStr] === 'completed';
+    }
+
+    // Fall back to checking lastCompleted
     if (!habit.lastCompleted) return false;
-    const today = new Date();
-    const lastCompleted = new Date(habit.lastCompleted);
-    return (
-      today.getDate() === lastCompleted.getDate() &&
-      today.getMonth() === lastCompleted.getMonth() &&
-      today.getFullYear() === lastCompleted.getFullYear()
-    );
+
+    return isSameDay(new Date(habit.lastCompleted), date) && habit.status === 'completed';
   };
 
   const getLastTrackedTime = (habit: Habit) => {
     if (!habit.lastCompleted) return '';
     const now = new Date();
     const last = new Date(habit.lastCompleted);
-    
-    if (isTrackedToday(habit)) {
+
+    if (isToday(last)) {
       const hours = last.getHours().toString().padStart(2, '0');
       const minutes = last.getMinutes().toString().padStart(2, '0');
       return `Today at ${hours}:${minutes}`;
     }
-    
+
+    // Show date for non-today completions
+    if (isSameDay(last, selectedDate)) {
+      const hours = last.getHours().toString().padStart(2, '0');
+      const minutes = last.getMinutes().toString().padStart(2, '0');
+      return `Tracked at ${hours}:${minutes}`;
+    }
+
     const days = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
     return `${days} day${days !== 1 ? 's' : ''} ago`;
-  };
-
-  const updateHabitStatus = (id: string, newStatus: 'completed' | 'failed' | 'untracked') => {
-    setHabits(habits.map(habit => {
-      if (habit.id === id) {
-        let newStreak = habit.streak;
-        let newLastCompleted = habit.lastCompleted;
-
-        if (newStatus === 'completed') {
-          newStreak = habit.streak + 1;
-          newLastCompleted = new Date();
-        } else if (newStatus === 'failed') {
-          newStreak = 0;
-          newLastCompleted = null;
-        }
-        // 'untracked' status doesn't change the streak
-
-        return {
-          ...habit,
-          status: newStatus,
-          streak: newStreak,
-          lastCompleted: newLastCompleted,
-        };
-      }
-      return habit;
-    }));
-  };
-
-  const addHabit = () => {
-    if (newHabit.trim()) {
-      const newHabitItem: Habit = {
-        id: Date.now().toString(),
-        name: newHabit.trim(),
-        status: 'untracked',
-        streak: 0,
-        lastCompleted: null,
-      };
-      setHabits([...habits, newHabitItem]);
-      setNewHabit('');
-      setIsAddingHabit(false);
-    }
   };
 
   const getStreakColor = (streak: number) => {
@@ -127,126 +173,274 @@ const HabitsScreen: React.FC = () => {
     return '#95a5a6';
   };
 
+  // Sort habits by reminder time
+  const sortHabitsByReminderTime = (habits: Habit[]): Habit[] => {
+    return [...habits].sort((a, b) => {
+      // If either habit doesn't have a reminder time, place it at the end
+      if (!a.reminderTime) return 1;
+      if (!b.reminderTime) return -1;
+
+      // Parse times for comparison (format is "hh:mm a", e.g. "08:30 AM")
+      const timeA = parseReminderTime(a.reminderTime);
+      const timeB = parseReminderTime(b.reminderTime);
+
+      // Compare the parsed 24-hour time values
+      return timeA - timeB;
+    });
+  };
+
+  // Helper function to parse reminder time strings to comparable values
+  const parseReminderTime = (timeString: string): number => {
+    try {
+      const [time, period] = timeString.split(' ');
+      let [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
+
+      // Convert to 24-hour format for proper comparison
+      if (period && period.toLowerCase() === 'pm' && hours < 12) {
+        hours += 12;
+      } else if (period && period.toLowerCase() === 'am' && hours === 12) {
+        hours = 0;
+      }
+
+      return hours * 60 + minutes; // Convert to minutes for comparison
+    } catch (error) {
+      console.error('Error parsing time:', timeString, error);
+      return 0;
+    }
+  };
+
+  // Generate a week view for the selected date's week
+  const generateWeekDays = () => {
+    // Start from Monday of the week containing the selectedDate
+    const currentDay = selectedDate.getDay(); // 0 for Sunday, 1 for Monday, etc.
+    const startDay = subDays(selectedDate, currentDay === 0 ? 6 : currentDay - 1); // Start from Monday
+
+    return Array.from({ length: 7 }).map((_, index) => {
+      const date = addDays(startDay, index);
+      const dayNumber = date.getDate();
+      const dayName = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()];
+
+      return {
+        date: dayNumber,
+        day: dayName,
+        fullDate: date,
+        isToday: isToday(date),
+        isSelected: isSameDay(date, selectedDate)
+      };
+    });
+  };
+
+  const weekDays = generateWeekDays();
+
+  // Check if a habit was completed on a specific date
+  const wasCompletedOnDate = (habit: Habit, date: Date): boolean => {
+    if (!habit.completionHistory) {
+      // If no completion history exists, fall back to checking lastCompleted
+      // Make sure we handle null/undefined properly
+      if (!habit.lastCompleted) return false;
+
+      return isSameDay(new Date(habit.lastCompleted), date) && habit.status === 'completed';
+    }
+
+    // Otherwise check the completion history
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return habit.completionHistory[dateStr] === 'completed';
+  };
+
+  // Handle date change from DateHeader
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+  };
+
+  // Get status for the currently selected date
+  const getStatusForSelectedDate = (habit: Habit) => {
+    // If checking for today, use the current status property
+    if (isToday(selectedDate)) {
+      return habit.status;
+    }
+
+    // Check completion history if available
+    if (habit.completionHistory) {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      return habit.completionHistory[dateStr] || 'untracked';
+    }
+
+    // Fall back to last completed date 
+    if (habit.lastCompleted && isSameDay(new Date(habit.lastCompleted), selectedDate)) {
+      return 'completed';
+    }
+
+    return 'untracked';
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Loading habits...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
-      <DateHeader />
-      
-      {!isAddingHabit ? (
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => setIsAddingHabit(true)}
-        >
-          <Text style={styles.addButtonText}>+ Add New Habit</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.addHabitContainer}>
-          <TextInput
-            style={styles.input}
-            value={newHabit}
-            onChangeText={setNewHabit}
-            placeholder="Enter new habit name"
-            placeholderTextColor="#95a5a6"
-          />
-          <View style={styles.addHabitButtons}>
-            <TouchableOpacity 
-              style={[styles.button, styles.cancelButton]}
-              onPress={() => {
-                setIsAddingHabit(false);
-                setNewHabit('');
-              }}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.button, styles.saveButton]}
-              onPress={addHabit}
-            >
-              <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
-          </View>
+      {/* Use the DateHeader component */}
+      <DateHeader onDateChange={handleDateChange} />
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => setIsAddingHabit(true)}
+      >
+        <Text style={styles.addButtonText}>+ Add New Habit</Text>
+      </TouchableOpacity>
+
+      <AddHabitModal
+        visible={isAddingHabit}
+        onClose={() => setIsAddingHabit(false)}
+        onAdd={handleAddHabit}
+      />
+
+      {/* Display date information if not today */}
+      {!isToday(selectedDate) && (
+        <View style={styles.selectedDateInfo}>
+          <Text style={styles.selectedDateText}>
+            Viewing habits for {format(selectedDate, 'MMMM d, yyyy')}
+          </Text>
         </View>
       )}
 
-      <View style={styles.habitsList}>
-        {habits.map(habit => (
-          <View key={habit.id} style={styles.habitCard}>
-            <View style={styles.habitHeader}>
-              <View style={styles.habitControls}>
-                <TouchableOpacity 
-                  onPress={() => updateHabitStatus(habit.id, 'completed')}
-                  style={[
-                    styles.habitButton,
-                    habit.status === 'completed' && styles.activeButton,
-                    styles.completeButton,
-                    isTrackedToday(habit) && styles.trackedTodayButton
-                  ]}
-                >
-                  <Text style={[
-                    styles.buttonIcon,
-                    habit.status === 'completed' && styles.activeButtonText
-                  ]}>✓</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => updateHabitStatus(habit.id, 'untracked')}
-                  style={[
-                    styles.habitButton,
-                    habit.status === 'untracked' && styles.activeButton,
-                    styles.untrackedButton
-                  ]}
-                >
-                  <Text style={[
-                    styles.buttonIcon,
-                    habit.status === 'untracked' && styles.activeButtonText
-                  ]}>-</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => updateHabitStatus(habit.id, 'failed')}
-                  style={[
-                    styles.habitButton,
-                    habit.status === 'failed' && styles.activeButton,
-                    styles.failButton
-                  ]}
-                >
-                  <Text style={[
-                    styles.buttonIcon,
-                    habit.status === 'failed' && styles.activeButtonText
-                  ]}>✗</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.habitInfo}>
-                <Text style={styles.habitText}>{habit.name}</Text>
-                {!isTrackedToday(habit) && (
-                  <View style={styles.notTrackedBadge}>
-                    <Text style={styles.notTrackedText}>Not tracked today</Text>
+      {habits.length === 0 ? (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateText}>
+            You don't have any habits yet. Add your first habit to start tracking!
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.habitsList}>
+          {sortHabitsByReminderTime(habits).map(habit => {
+            const currentStatus = getStatusForSelectedDate(habit);
+
+            return (
+              <View key={habit.id} style={styles.habitCard}>
+                <View style={styles.habitHeader}>
+                  <View style={styles.habitInfo}>
+                    <Text style={styles.habitText}>{habit.name}</Text>
+                    {habit.description && (
+                      <Text style={styles.habitDescription}>{habit.description}</Text>
+                    )}
+
+                    {currentStatus === 'untracked' && (
+                      <View style={styles.notTrackedBadge}>
+                        <Text style={styles.notTrackedText}>
+                          Not tracked {isToday(selectedDate) ? 'today' : 'on this date'}
+                        </Text>
+                      </View>
+                    )}
+
+                    {habit.lastCompleted && (
+                      <Text style={styles.lastTrackedText}>
+                        Last tracked: {getLastTrackedTime(habit)}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={styles.habitControls}>
+                    <TouchableOpacity
+                      onPress={() => updateHabitStatus(habit, 'completed', selectedDate)}
+                      style={[
+                        styles.habitButton,
+                        currentStatus === 'completed' && styles.activeButton,
+                        styles.completeButton,
+                        isTrackedOnDate(habit, selectedDate) && styles.trackedTodayButton
+                      ]}
+                    >
+                      <Text style={[
+                        styles.buttonIcon,
+                        currentStatus === 'completed' && styles.activeButtonText
+                      ]}>✓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => updateHabitStatus(habit, 'untracked', selectedDate)}
+                      style={[
+                        styles.habitButton,
+                        currentStatus === 'untracked' && styles.activeButton,
+                        styles.untrackedButton
+                      ]}
+                    >
+                      <Text style={[
+                        styles.buttonIcon,
+                        currentStatus === 'untracked' && styles.activeButtonText
+                      ]}>-</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => updateHabitStatus(habit, 'failed', selectedDate)}
+                      style={[
+                        styles.habitButton,
+                        currentStatus === 'failed' && styles.activeButton,
+                        styles.failButton
+                      ]}
+                    >
+                      <Text style={[
+                        styles.buttonIcon,
+                        currentStatus === 'failed' && styles.activeButtonText
+                      ]}>✗</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Weekly habit tracker */}
+                <View style={styles.weeklyTracker}>
+                  {generateWeekDays().map((day, index) => (
+                    <HabitDayIndicator
+                      key={index}
+                      day={day.day}
+                      isCompleted={wasCompletedOnDate(habit, day.fullDate)}
+                      isToday={day.isToday}
+                      isSelected={day.isSelected}
+                      onPress={() => {
+                        // Set the selected date to this day and update UI
+                        handleDateChange(day.fullDate);
+                      }}
+                    />
+                  ))}
+                </View>
+
+                <View style={styles.streakContainer}>
+                  <View style={styles.streakBar}>
+                    <View
+                      style={[
+                        styles.streakProgress,
+                        {
+                          width: `${Math.min((habit.streak * 10), 100)}%`,
+                          backgroundColor: getStreakColor(habit.streak)
+                        }
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.streakInfoContainer}>
+                    <Text style={styles.streakText}>
+                      {habit.streak} day{habit.streak !== 1 ? 's' : ''} streak
+                    </Text>
+                    {habit.longestStreak > 0 && (
+                      <Text style={styles.longestStreakText}>
+                        Longest: {habit.longestStreak} day{habit.longestStreak !== 1 ? 's' : ''}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {habit.reminderTime && (
+                  <View style={styles.reminderContainer}>
+                    <Text style={styles.reminderText}>
+                      Daily reminder: {habit.reminderTime}
+                    </Text>
                   </View>
                 )}
-                {habit.lastCompleted && (
-                  <Text style={styles.lastTrackedText}>
-                    Last tracked: {getLastTrackedTime(habit)}
-                  </Text>
-                )}
               </View>
-            </View>
-            
-            <View style={styles.streakContainer}>
-              <View style={styles.streakBar}>
-                <View 
-                  style={[
-                    styles.streakProgress, 
-                    { 
-                      width: `${Math.min((habit.streak * 10), 100)}%`,
-                      backgroundColor: getStreakColor(habit.streak)
-                    }
-                  ]} 
-                />
-              </View>
-              <Text style={styles.streakText}>
-                {habit.streak} day{habit.streak !== 1 ? 's' : ''} streak
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
+            );
+          })}
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -257,77 +451,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 0,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#7f8c8d',
+  },
+  selectedDateInfo: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: '#f0f4f8',
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginHorizontal: 16,
+  },
+  selectedDateText: {
+    color: '#2c3e50',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
   addButton: {
     backgroundColor: '#2c3e50',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginHorizontal: 16, // Added horizontal margin
-    marginTop: 16, // Added top margin to create space after DateHeader
+    marginHorizontal: 16,
+    marginTop: 16,
     marginBottom: 16,
-},
+  },
   addButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  addHabitContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  input: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#dfe6e9',
-    marginBottom: 12,
-  },
-  addHabitButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  button: {
-    padding: 12,
-    borderRadius: 8,
-    minWidth: 80,
+  emptyStateContainer: {
+    padding: 24,
     alignItems: 'center',
-    marginLeft: 12,
+    justifyContent: 'center',
   },
-  cancelButton: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#dfe6e9',
-  },
-  saveButton: {
-    backgroundColor: '#2c3e50',
-  },
-  cancelButtonText: {
-    color: '#2c3e50',
-    fontWeight: '600',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  emptyStateText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#7f8c8d',
+    lineHeight: 24,
   },
   habitsList: {
     gap: 12,
-    paddingHorizontal: 16, // Added horizontal padding
-},
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
   habitCard: {
     backgroundColor: '#f8f9fa',
     padding: 16,
@@ -346,16 +523,28 @@ const styles = StyleSheet.create({
   },
   habitHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
   },
   habitControls: {
     flexDirection: 'row',
     gap: 8,
-    marginRight: 12,
   },
   habitInfo: {
     flex: 1,
+    marginRight: 12,
+  },
+  habitText: {
+    fontSize: 18,
+    color: '#2c3e50',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  habitDescription: {
+    fontSize: 14,
+    color: '#34495e',
+    marginBottom: 8,
   },
   habitButton: {
     width: 36,
@@ -391,11 +580,6 @@ const styles = StyleSheet.create({
     borderColor: '#27ae60',
     borderWidth: 2,
   },
-  habitText: {
-    fontSize: 16,
-    color: '#2c3e50',
-    fontWeight: '500',
-  },
   notTrackedBadge: {
     backgroundColor: '#fff3e0',
     paddingHorizontal: 8,
@@ -403,6 +587,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     alignSelf: 'flex-start',
     marginTop: 4,
+    marginBottom: 8,
   },
   notTrackedText: {
     color: '#f57c00',
@@ -412,6 +597,12 @@ const styles = StyleSheet.create({
   lastTrackedText: {
     fontSize: 12,
     color: '#95a5a6',
+    marginTop: 4,
+  },
+  weeklyTracker: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
     marginTop: 4,
   },
   streakContainer: {
@@ -428,10 +619,29 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 3,
   },
+  streakInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   streakText: {
     fontSize: 14,
-    color: '#95a5a6',
+    color: '#2c3e50',
     fontWeight: '500',
+  },
+  longestStreakText: {
+    fontSize: 12,
+    color: '#95a5a6',
+  },
+  reminderContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  reminderText: {
+    fontSize: 14,
+    color: '#7f8c8d',
   },
 });
 

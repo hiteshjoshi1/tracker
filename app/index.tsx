@@ -8,7 +8,7 @@ export default function Index() {
   const user = auth.currentUser;
   
   if (user) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/today" />;
   } else {
     return <Redirect href="/login" />;
   }

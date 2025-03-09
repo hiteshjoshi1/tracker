@@ -11,10 +11,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   scheme: "tracker", // Only define scheme once here
+  plugins: [
+    [
+      "expo-notifications",
+      {
+        icon: "./assets/images/adaptive-icon.png"
+      }
+    ]
+  ],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.hiteshjoshi.tracker", // Add this
-    googleServicesFile: "./GoogleService-Info.plist", // Add this if using Firebase
+    bundleIdentifier: "com.hiteshjoshi.tracker",
+    googleServicesFile: "./GoogleService-Info.plist",
   },
   android: {
     adaptiveIcon: {
@@ -23,22 +31,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     package: "com.hiteshjoshi.tracker",
     googleServicesFile: "./google-services.json",
-    versionCode: 1 ,
-        // Add this if not present
-        intentFilters: [
-            {
-              action: "VIEW",
-              autoVerify: true,
-              data: [
-                {
-                  scheme: "tracker",
-                  host: "*"
-                }
-              ],
-              category: ["BROWSABLE", "DEFAULT"]
-            }
-          ]
-      
+    versionCode: 1,
+    intentFilters: [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          {
+            scheme: "tracker",
+            host: "*"
+          }
+        ],
+        category: ["BROWSABLE", "DEFAULT"]
+      }
+    ]
   },
   web: {
     bundler: "metro",
