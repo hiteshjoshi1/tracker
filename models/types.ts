@@ -1,5 +1,5 @@
 // models/types.ts
-export type CollectionType = 'goals' | 'goodDeeds' | 'reflections' | 'habits';
+export type CollectionType = 'goals' | 'goodDeeds' | 'reflections' | 'habits' | 'quotes';
 
 export interface BaseItem {
   id: string;
@@ -60,4 +60,11 @@ export interface NotificationContextType {
 // Add this interface for the notification provider props
 export interface NotificationProviderProps {
   children: React.ReactNode;
+}
+
+export interface Quote extends BaseItem {
+  text: string;
+  author: string;
+  categories: string[];
+  favorite: boolean;
 }
