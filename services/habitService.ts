@@ -1,5 +1,7 @@
+// Enhanced HabitService.ts with notification support
+
 import { FirebaseService } from './firebaseService';
-import { Habit } from '../models/types'
+import { Habit } from '../models/types';
 import { 
   collection, 
   query, 
@@ -9,13 +11,14 @@ import {
   QueryConstraint
 } from 'firebase/firestore';
 import { startOfDay, endOfDay, isSameDay, format, differenceInDays, addDays } from 'date-fns';
+import { NotificationService } from './notificationService';
 
 export class HabitService extends FirebaseService<Habit> {
   constructor() {
     super('habits');
   }
 
-  // Add a new habit
+  // Add a new habit with notification support
   async addHabit(userId: string, habitData: Partial<Habit>): Promise<string> {
     const defaultReminderDays = {
       monday: true,
@@ -52,7 +55,40 @@ export class HabitService extends FirebaseService<Habit> {
       cleanedData.description = description;
     }
     
-    return this.addItem(userId, cleanedData);
+    // Add the habit to Firestore
+    const habitId = await this.addItem(userId, cleanedData);
+    
+    return habitId;
+  }
+
+  // Update habit with notification handling
+  async updateHabit(habitId: string, updates: Partial<Habit>): Promise<void> {
+    // Handle notifications if the reminder time changes
+    if ('reminderTime' in updates || 'reminderDays' in updates) {
+      // Get the current habit
+      const currentHabit = await this.getItemById(habitId);
+      
+      // Cancel existing notifications
+      await NotificationService.cancelHabitNotifications(habitId);
+      
+      // Schedule new notifications if there's a reminder time
+      if (updates.reminderTime && currentHabit) {
+        const updatedHabit = { ...currentHabit, ...updates };
+        await NotificationService.scheduleHabitNotification(updatedHabit as Habit);
+      }
+    }
+    
+    // Update the habit in Firestore
+    await this.updateItem(habitId, updates);
+  }
+
+  // Delete habit with notification cleanup
+  async deleteHabit(habitId: string): Promise<void> {
+    // Cancel any scheduled notifications
+    await NotificationService.cancelHabitNotifications(habitId);
+    
+    // Delete the habit from Firestore
+    await this.deleteItem(habitId);
   }
 
   // Update habit status for a specific date

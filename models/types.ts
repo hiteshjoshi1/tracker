@@ -45,3 +45,19 @@ export interface Habit extends BaseItem {
   // New field to track completion status for each date
   completionHistory?: Record<string, 'completed' | 'failed' | 'untracked'>;
 }
+
+export const PUSH_TOKEN_KEY = '@push_token';
+export const NOTIFICATION_IDS_KEY = '@notification_ids';
+
+// Add this interface for the notification context if you don't already have it
+// Do not modify your existing Habit interface, as it already has reminderTime and reminderDays
+export interface NotificationContextType {
+  scheduleDailyReminder: (habit: Habit) => Promise<string | string[] | null>;
+  cancelReminder: (habitId: string) => Promise<void>;
+  rescheduleAllReminders: (habits: Habit[]) => Promise<void>;
+}
+
+// Add this interface for the notification provider props
+export interface NotificationProviderProps {
+  children: React.ReactNode;
+}

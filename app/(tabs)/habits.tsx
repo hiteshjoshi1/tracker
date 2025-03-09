@@ -16,6 +16,7 @@ import { habitService } from '../../services/habitService';
 import { Habit } from '../../models/types';
 import { format, isToday, parseISO, isSameDay, addDays, subDays } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 const DAYS_OF_WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -25,6 +26,7 @@ const HabitsScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { userInfo } = useAuth(); // Access the current user from auth context
+  const { scheduleDailyReminder, cancelReminder, rescheduleAllReminders } = useNotifications(); // Add this line
 
   useEffect(() => {
     if (userInfo?.uid) {
@@ -59,15 +61,46 @@ const HabitsScreen: React.FC = () => {
     }
   };
 
-  const handleAddHabit = async (habitData: Partial<Habit>) => {
-    if (!userInfo?.uid) return;
+  const handleAddHabit = async (habitData: Partial<Habit>): Promise<string> => {
+    if (!userInfo?.uid) throw new Error("User not logged in");
 
     try {
-      await habitService.addHabit(userInfo.uid, habitData);
-      // No need to manually update state as the real-time listener will handle it
+      // Add the habit to the database
+      const habitId = await habitService.addHabit(userInfo.uid, habitData);
+      
+      // Note: We don't need to manually schedule notifications here anymore
+      // The AddHabitModal component will handle that with useNotifications hook
+      
+      return habitId;
     } catch (error) {
       console.error('Error adding habit:', error);
       Alert.alert('Error', 'Failed to add habit. Please try again.');
+      throw error;
+    }
+  };
+
+  // Handle editing a habit (if you implement an edit feature)
+  const handleEditHabit = async (habitId: string, updates: Partial<Habit>) => {
+    try {
+      await habitService.updateHabit(habitId, updates);
+      
+      // If reminder time or days changed, update notifications
+      if ('reminderTime' in updates || 'reminderDays' in updates) {
+        // Get the updated habit
+        const updatedHabit = habits.find(h => h.id === habitId);
+        if (updatedHabit) {
+          // Cancel existing notifications
+          await cancelReminder(habitId);
+          
+          // Schedule new notifications if there's a reminder time
+          if (updatedHabit.reminderTime) {
+            await scheduleDailyReminder(updatedHabit);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating habit:', error);
+      Alert.alert('Error', 'Failed to update habit. Please try again.');
     }
   };
 
@@ -81,6 +114,20 @@ const HabitsScreen: React.FC = () => {
     } catch (error) {
       console.error('Error updating habit status:', error);
       Alert.alert('Error', 'Failed to update habit status. Please try again.');
+    }
+  };
+
+  // Handle deleting a habit (if you implement a delete feature)
+  const handleDeleteHabit = async (habitId: string) => {
+    try {
+      // Cancel notifications first
+      await cancelReminder(habitId);
+      
+      // Then delete the habit
+      await habitService.deleteHabit(habitId);
+    } catch (error) {
+      console.error('Error deleting habit:', error);
+      Alert.alert('Error', 'Failed to delete habit. Please try again.');
     }
   };
 

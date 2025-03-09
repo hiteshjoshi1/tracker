@@ -9,15 +9,18 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Habit } from '../models/types'
 import { format } from 'date-fns';
+import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 
 interface AddHabitModalProps {
   visible: boolean;
   onClose: () => void;
-  onAdd: (habitData: Partial<Habit>) => void;
+  onAdd: (habitData: Partial<Habit>) => Promise<string>;
 }
 
 const AddHabitModal: React.FC<AddHabitModalProps> = ({ visible, onClose, onAdd }) => {
@@ -25,6 +28,7 @@ const AddHabitModal: React.FC<AddHabitModalProps> = ({ visible, onClose, onAdd }
   const [description, setDescription] = useState('');
   const [reminderTime, setReminderTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [enableReminders, setEnableReminders] = useState(true);
   const [selectedDays, setSelectedDays] = useState({
     monday: true,
     tuesday: true,
@@ -35,10 +39,16 @@ const AddHabitModal: React.FC<AddHabitModalProps> = ({ visible, onClose, onAdd }
     sunday: true,
   });
 
+  // Get notification functions from context
+  const { scheduleDailyReminder } = useNotifications();
+  // Get user info from auth context
+  const { userInfo } = useAuth();
+
   const resetForm = () => {
     setName('');
     setDescription('');
     setReminderTime(new Date());
+    setEnableReminders(true);
     setSelectedDays({
       monday: true,
       tuesday: true,
@@ -55,17 +65,57 @@ const AddHabitModal: React.FC<AddHabitModalProps> = ({ visible, onClose, onAdd }
     onClose();
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (name.trim()) {
       const formattedTime = format(reminderTime, 'hh:mm a');
-      onAdd({
+      
+      // Create habit data with proper types
+      const habitData: Partial<Habit> = {
         name: name.trim(),
-        description: description.trim() || undefined,
-        reminderTime: formattedTime,
-        reminderDays: selectedDays,
-      });
-      resetForm();
-      onClose();
+        // Only set description if there is a value
+        ...(description.trim() ? { description: description.trim() } : {}),
+        // Only include reminder-related fields if reminders are enabled
+        ...(enableReminders ? { 
+          reminderTime: formattedTime,
+          reminderDays: selectedDays
+        } : {})
+      };
+
+      try {
+        // Add the habit and get the ID
+        const habitId = await onAdd(habitData);
+        
+        // Schedule notification if reminders are enabled
+        if (enableReminders) {
+          // Create a full habit object for the notification scheduler
+          const habitForNotification: Habit = {
+            id: habitId,
+            name: name.trim(),
+            ...(description.trim() ? { description: description.trim() } : {}),
+            reminderTime: formattedTime,
+            reminderDays: selectedDays,
+            // Add required fields with defaults
+            status: 'untracked',
+            streak: 0,
+            longestStreak: 0,
+            lastCompleted: null,
+            date: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            completionHistory: {},
+            userId: userInfo?.uid || '', // Add the userId from auth context
+          };
+          
+          await scheduleDailyReminder(habitForNotification);
+        }
+        
+        // Reset form and close modal
+        resetForm();
+        onClose();
+      } catch (error) {
+        console.error('Error adding habit:', error);
+        // Here you could show an error message to the user
+      }
     }
   };
 
@@ -81,13 +131,16 @@ const AddHabitModal: React.FC<AddHabitModalProps> = ({ visible, onClose, onAdd }
       style={[
         styles.dayButton,
         selectedDays[day] ? styles.selectedDay : styles.unselectedDay,
+        !enableReminders && styles.disabledDay,
       ]}
       onPress={() => toggleDay(day)}
+      disabled={!enableReminders}
     >
       <Text
         style={[
           styles.dayButtonText,
           selectedDays[day] ? styles.selectedDayText : styles.unselectedDayText,
+          !enableReminders && styles.disabledDayText,
         ]}
       >
         {label}
@@ -137,49 +190,65 @@ const AddHabitModal: React.FC<AddHabitModalProps> = ({ visible, onClose, onAdd }
           </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Reminder Time</Text>
-            {Platform.OS === 'ios' ? (
-              <DateTimePicker
-                value={reminderTime}
-                mode="time"
-                display="spinner"
-                onChange={handleTimeChange}
-                style={styles.timePicker}
+            <View style={styles.reminderHeaderRow}>
+              <Text style={styles.inputLabel}>Enable Reminders</Text>
+              <Switch
+                value={enableReminders}
+                onValueChange={setEnableReminders}
+                trackColor={{ false: '#ecf0f1', true: '#bde0fe' }}
+                thumbColor={enableReminders ? '#3498db' : '#bdc3c7'}
               />
-            ) : (
-              <>
-                <Pressable
-                  onPress={() => setShowTimePicker(true)}
-                  style={styles.timePickerButton}
-                >
-                  <Text style={styles.timeText}>
-                    {format(reminderTime, 'hh:mm a')}
-                  </Text>
-                </Pressable>
-                {showTimePicker && (
+            </View>
+          </View>
+
+          {enableReminders && (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Reminder Time</Text>
+                {Platform.OS === 'ios' ? (
                   <DateTimePicker
                     value={reminderTime}
                     mode="time"
-                    display="default"
+                    display="spinner"
                     onChange={handleTimeChange}
+                    style={styles.timePicker}
                   />
+                ) : (
+                  <>
+                    <Pressable
+                      onPress={() => setShowTimePicker(true)}
+                      style={styles.timePickerButton}
+                    >
+                      <Text style={styles.timeText}>
+                        {format(reminderTime, 'hh:mm a')}
+                      </Text>
+                    </Pressable>
+                    {showTimePicker && (
+                      <DateTimePicker
+                        value={reminderTime}
+                        mode="time"
+                        display="default"
+                        onChange={handleTimeChange}
+                      />
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Repeat on days</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysContainer}>
-              <DayButton day="monday" label="M" />
-              <DayButton day="tuesday" label="T" />
-              <DayButton day="wednesday" label="W" />
-              <DayButton day="thursday" label="T" />
-              <DayButton day="friday" label="F" />
-              <DayButton day="saturday" label="S" />
-              <DayButton day="sunday" label="S" />
-            </ScrollView>
-          </View>
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Repeat on days</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysContainer}>
+                  <DayButton day="monday" label="M" />
+                  <DayButton day="tuesday" label="T" />
+                  <DayButton day="wednesday" label="W" />
+                  <DayButton day="thursday" label="T" />
+                  <DayButton day="friday" label="F" />
+                  <DayButton day="saturday" label="S" />
+                  <DayButton day="sunday" label="S" />
+                </ScrollView>
+              </View>
+            </>
+          )}
           
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
@@ -230,6 +299,11 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 16,
+  },
+  reminderHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   inputLabel: {
     fontSize: 16,
@@ -283,6 +357,10 @@ const styles = StyleSheet.create({
   unselectedDay: {
     backgroundColor: '#f0f0f0',
   },
+  disabledDay: {
+    backgroundColor: '#ecf0f1',
+    opacity: 0.6,
+  },
   dayButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -292,6 +370,9 @@ const styles = StyleSheet.create({
   },
   unselectedDayText: {
     color: '#7f8c8d',
+  },
+  disabledDayText: {
+    color: '#bdc3c7',
   },
   buttonContainer: {
     flexDirection: 'row',
