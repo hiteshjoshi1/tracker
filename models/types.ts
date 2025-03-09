@@ -68,3 +68,9 @@ export interface Quote extends BaseItem {
   categories: string[];
   favorite: boolean;
 }
+
+export interface ModalConfig {
+  isVisible: boolean;
+  initialText: string;
+  editId: string | null;
+}

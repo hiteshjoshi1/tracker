@@ -189,9 +189,6 @@ export default function Dashboard() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>My Journey</Text>
-          <TouchableOpacity style={styles.addButton}>
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
         </View>
         
         <ScrollView style={styles.scrollView}>

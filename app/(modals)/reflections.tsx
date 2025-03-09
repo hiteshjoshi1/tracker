@@ -16,6 +16,7 @@ import { isToday } from 'date-fns';
 import { reflectionService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import DateHeader from '../../components/DateHeader'; // Import DateHeader
+import { ModalConfig } from '@/models/types';
 
 // Types
 interface ReflectionItem {
@@ -23,12 +24,6 @@ interface ReflectionItem {
   text: string;
   timestamp: Date;
   date?: Date;
-}
-
-interface ModalConfig {
-  isVisible: boolean;
-  initialText: string;
-  editId: string | null;
 }
 
 export default function ReflectionsScreen() {

@@ -1,4 +1,5 @@
 // app/(modals)/goals.tsx
+// app/(modals)/goals.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -12,11 +13,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { isToday, isBefore, addDays, subDays, format, isSameDay } from 'date-fns';
-import { router } from 'expo-router';
+import { isToday, isBefore, format } from 'date-fns';
 import { goalService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
-import DateHeader from '../../components/DateHeader'; // Updated import
+import DateHeader from '../../components/DateHeader';
+import { ModalConfig } from '@/models/types';
+
 
 // Types
 interface Goal {
@@ -27,17 +29,11 @@ interface Goal {
   isExpired?: boolean;
 }
 
-interface ModalConfig {
-  isVisible: boolean;
-  initialText: string;
-  editId: string | null;
-}
-
 export default function GoalsScreen() {
   // Get user info from auth context
   const { userInfo } = useAuth();
   
-  // Data states
+  // State management
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,10 +48,10 @@ export default function GoalsScreen() {
   // Input states
   const [newGoalText, setNewGoalText] = useState('');
   
-  // Track if component is mounted to prevent state updates after unmount
+  // Track if component is mounted
   const isMounted = useRef(true);
 
-  // Cleanup mounted flag
+  // Component lifecycle
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -63,50 +59,38 @@ export default function GoalsScreen() {
     };
   }, []);
 
-  // Fetch data when user or date changes
+  // Fetch goals when user or date changes
   useEffect(() => {
     if (userInfo?.uid) {
       fetchDataForDate(selectedDate);
     }
   }, [userInfo, selectedDate]);
 
-  // Function to fetch goals for a specific date
+  // Fetch goals for a specific date
   const fetchDataForDate = useCallback(async (date: Date) => {
     if (!userInfo?.uid || !isMounted.current) return;
     
     try {
       setLoading(true);
-      // Fetch goals
       const goalsForDate = await goalService.getItemsByDate(userInfo.uid, date);
       
-      // Mark expired goals
-      if (isBefore(date, new Date()) && !isToday(date)) {
-        if (isMounted.current) {
-          setGoals(goalsForDate.map(goal => ({
-            ...goal,
-            isExpired: !goal.completed
-          })));
-        }
-      } else {
-        if (isMounted.current) {
-          setGoals(goalsForDate);
-        }
+      // Mark expired goals for past dates
+      const processedGoals = goalsForDate.map(goal => ({
+        ...goal,
+        isExpired: isBefore(date, new Date()) && !goal.completed && !isToday(date)
+      }));
+      
+      if (isMounted.current) {
+        setGoals(processedGoals);
       }
     } catch (error) {
-      console.error('Error fetching goals for date:', error);
+      console.error('Error fetching goals:', error);
     } finally {
       setLoading(false);
     }
   }, [userInfo]);
 
-  // Calculate progress percentage
-  const getProgressPercentage = useCallback(() => {
-    if (goals.length === 0) return 0;
-    const completedGoals = goals.filter(goal => goal.completed).length;
-    return (completedGoals / goals.length) * 100;
-  }, [goals]);
-
-  // Goal functions
+  // Toggle goal completion
   const toggleGoal = async (id: string) => {
     if (!userInfo?.uid) return;
     
@@ -115,7 +99,6 @@ export default function GoalsScreen() {
       if (goal) {
         await goalService.toggleCompletion(id, !goal.completed);
         
-        // Update local state
         setGoals(prevGoals => 
           prevGoals.map(g => 
             g.id === id ? { ...g, completed: !goal.completed } : g
@@ -127,6 +110,7 @@ export default function GoalsScreen() {
     }
   };
 
+  // Add or edit goal
   const handleAddGoal = async () => {
     if (!userInfo?.uid || !newGoalText.trim()) return;
 
@@ -137,7 +121,6 @@ export default function GoalsScreen() {
           text: newGoalText.trim()
         });
         
-        // Update local state
         setGoals(prevGoals => 
           prevGoals.map(goal => 
             goal.id === goalModalVisible.editId
@@ -146,13 +129,12 @@ export default function GoalsScreen() {
           )
         );
       } else {
-        // Adding new goal for the selected date
+        // Adding new goal
         const newGoalId = await goalService.addItem(userInfo.uid, {
           text: newGoalText.trim(),
           completed: false
         }, selectedDate);
         
-        // Add to local state
         setGoals(prevGoals => [...prevGoals, {
           id: newGoalId,
           text: newGoalText.trim(),
@@ -161,13 +143,14 @@ export default function GoalsScreen() {
         }]);
       }
       
-      // Close modal and clear text
+      // Close modal and reset
       handleCloseGoalModal();
     } catch (error) {
       console.error('Error managing goal:', error);
     }
   };
 
+  // Open goal modal for adding or editing
   const handleOpenGoalModal = (itemId?: string) => {
     if (itemId) {
       const goalToEdit = goals.find(goal => goal.id === itemId);
@@ -187,186 +170,140 @@ export default function GoalsScreen() {
     }
   };
 
+  // Close goal modal
   const handleCloseGoalModal = () => {
     setGoalModalVisible({ isVisible: false, initialText: '', editId: null });
     setNewGoalText('');
   };
 
-  // Filter goals for the segmented UI
+  // Calculate progress percentage
+  const getProgressPercentage = useCallback(() => {
+    if (goals.length === 0) return 0;
+    const completedGoals = goals.filter(goal => goal.completed).length;
+    return (completedGoals / goals.length) * 100;
+  }, [goals]);
+
+  // Separate goals into completed and active
   const completedGoals = goals.filter(goal => goal.completed);
   const activeGoals = goals.filter(goal => !goal.completed);
 
-  // Format time for display
-  const formatTime = (date?: Date) => {
-    if (!date) return '';
-    return new Date(date).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   return (
     <View style={styles.container}>
-      {/* Header with Date Selector */}
+      {/* Date Header with Progress */}
       <DateHeader 
         onDateChange={setSelectedDate}
+        selectedDate={selectedDate}
         progressPercentage={getProgressPercentage()}
       />
 
-      <ScrollView style={styles.scrollView}>
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>
-            {completedGoals.length}/{goals.length} completed ({Math.round(getProgressPercentage())}%)
+      {/* Main Content */}
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        {/* Goals Summary */}
+        <View style={styles.goalsSummaryContainer}>
+          <Text style={styles.goalsSummaryText}>Goals Progress</Text>
+          <Text style={styles.goalsSummaryText}>
+            {completedGoals.length}/{goals.length} Completed
           </Text>
-          <TouchableOpacity style={styles.filterButton}>
-            <Text style={styles.filterText}>All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Rest of the component remains the same */}
-        {/* Completed Goals Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>COMPLETED ({completedGoals.length})</Text>
-            <TouchableOpacity>
-              <Ionicons name="chevron-down" size={24} color="#95a5a6" />
-            </TouchableOpacity>
-          </View>
-          
-          {completedGoals.length > 0 ? (
-            completedGoals.map(goal => (
-              <View key={goal.id} style={styles.goalItem}>
-                <TouchableOpacity
-                  style={styles.goalCheckCircle}
-                  onPress={() => toggleGoal(goal.id)}
-                >
-                  <View style={styles.checkedCircle}>
-                    <Ionicons name="checkmark" size={20} color="white" />
-                  </View>
-                </TouchableOpacity>
-                <Text style={styles.goalTextCompleted}>{goal.text}</Text>
-                <Text style={styles.goalTime}>{formatTime(goal.date)}</Text>
-              </View>
-            ))
-          ) : (
-            <View style={styles.emptySection}>
-              <Text style={styles.emptyText}>No completed goals for this date</Text>
-            </View>
-          )}
         </View>
 
         {/* Active Goals Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>ACTIVE ({activeGoals.length})</Text>
-            <TouchableOpacity>
-              <Ionicons name="chevron-down" size={24} color="#95a5a6" />
+        <View style={styles.activeGoalsContainer}>
+          <View style={styles.activeGoalsHeader}>
+            <Text style={styles.activeGoalsTitle}>Active Goals</Text>
+            <TouchableOpacity 
+              onPress={() => handleOpenGoalModal()}
+              style={styles.addGoalButton}
+            >
+              <Ionicons name="add" size={20} color="white" />
+              <Text style={styles.addGoalButtonText}>Add Goal</Text>
             </TouchableOpacity>
           </View>
-          
-          {activeGoals.length > 0 ? (
+
+          {activeGoals.length === 0 ? (
+            <Text style={styles.emptyGoalsText}>
+              No active goals for {isToday(selectedDate) ? 'today' : format(selectedDate, 'MMMM d')}
+            </Text>
+          ) : (
             activeGoals.map(goal => (
-              <View key={goal.id} style={styles.goalItem}>
-                <TouchableOpacity
-                  style={styles.goalCheckCircle}
-                  onPress={() => toggleGoal(goal.id)}
-                >
-                  <View style={styles.uncheckedCircle} />
-                </TouchableOpacity>
-                <Text style={[
-                  styles.goalText,
-                  goal.isExpired && styles.expiredGoalText
-                ]}>
-                  {goal.text}
-                </Text>
+              <View 
+                key={goal.id} 
+                style={styles.goalItem}
+              >
                 <TouchableOpacity 
-                  style={styles.editButton}
-                  onPress={() => handleOpenGoalModal(goal.id)}
-                >
-                  <Text style={styles.editButtonEmoji}>✏️</Text>
+                  onPress={() => toggleGoal(goal.id)}
+                  style={styles.goalCheckbox}
+                />
+                <Text style={styles.goalText}>{goal.text}</Text>
+                <TouchableOpacity onPress={() => handleOpenGoalModal(goal.id)}>
+                  <Ionicons name="create-outline" size={24} color="#3498db" />
                 </TouchableOpacity>
               </View>
             ))
-          ) : (
-            <View style={styles.emptySection}>
-              <Text style={styles.emptyText}>
-                {isToday(selectedDate) 
-                  ? "No active goals for today" 
-                  : "No active goals for this date"
-                }
-              </Text>
-            </View>
           )}
         </View>
 
-        {/* Quick Add Goal - only show for today or future dates */}
-        {!isBefore(selectedDate, new Date()) && (
-          <View style={styles.quickAddContainer}>
-            <View style={styles.quickAddCircle}>
-              <Text style={styles.quickAddPlus}>+</Text>
-            </View>
-            <TextInput 
-              style={styles.quickAddInput}
-              placeholder="Add a goal..."
-              placeholderTextColor="#95a5a6"
-              onFocus={() => handleOpenGoalModal()}
-            />
+        {/* Completed Goals Section */}
+        {completedGoals.length > 0 && (
+          <View style={styles.completedGoalsContainer}>
+            <Text style={styles.completedGoalsTitle}>
+              Completed Goals
+            </Text>
+            {completedGoals.map(goal => (
+              <View 
+                key={goal.id} 
+                style={styles.completedGoalItem}
+              >
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={24} 
+                  color="#2ecc71" 
+                  style={{ marginRight: 10 }} 
+                />
+                <Text style={styles.completedGoalText}>
+                  {goal.text}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
-
-        {/* Bottom padding */}
-        <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Floating Add Button - only show for today or future dates */}
-      {!isBefore(selectedDate, new Date()) && (
-        <TouchableOpacity 
-          style={styles.floatingAddButton}
-          onPress={() => handleOpenGoalModal()}
-        >
-          <Ionicons name="add" size={32} color="white" />
-        </TouchableOpacity>
-      )}
-
-      {/* Goal Modal - unchanged */}
+      {/* Add Goal Modal */}
       <Modal
         visible={goalModalVisible.isVisible}
         transparent
         animationType="slide"
         onRequestClose={handleCloseGoalModal}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalContainer}
-        >
-          <View style={styles.modalContent}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              {goalModalVisible.editId ? 'Edit Goal' : 'Add New Goal'}
+              {goalModalVisible.editId ? 'Edit Goal' : 'New Goal'}
             </Text>
             <TextInput
-              style={styles.modalInput}
               value={newGoalText}
               onChangeText={setNewGoalText}
               placeholder="Enter your goal"
+              style={styles.modalInput}
+              multiline
               autoFocus
             />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity 
                 onPress={handleCloseGoalModal}
+                style={styles.modalCancelButton}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
+              <TouchableOpacity 
                 onPress={handleAddGoal}
+                style={styles.modalSaveButton}
               >
-                <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.modalSaveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
@@ -378,264 +315,192 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f8fa',
   },
-  header: {
-    backgroundColor: '#3498db',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  scrollViewContent: {
+    paddingBottom: 20,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: '#f5f8fa',
-  },
-  emptySection: {
-    padding: 16,
-    alignItems: 'center',
+  goalsSummaryContainer: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    padding: 16, 
     backgroundColor: 'white',
+    margin: 16,
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  emptyText: {
-    color: '#95a5a6',
-    fontSize: 14,
+  goalsSummaryText: {
+    color: '#2c3e50',
+    fontSize: 16,
+  },
+  activeGoalsContainer: {
+    backgroundColor: 'white', 
+    margin: 16, 
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  activeGoalsHeader: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    padding: 16,
+  },
+  activeGoalsTitle: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    color: '#2c3e50',
+  },
+  addGoalButton: {
+    backgroundColor: '#3498db', 
+    borderRadius: 20, 
+    paddingHorizontal: 12, 
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addGoalButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    marginLeft: 5,
+  },
+  emptyGoalsText: {
+    textAlign: 'center', 
+    padding: 16, 
+    color: '#7f8c8d',
     fontStyle: 'italic',
   },
-  expiredGoalText: {
-    color: '#e74c3c',
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    backgroundColor: 'white',
-    borderRadius: 15,
-  },
-  dateText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#34495e',
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: '#ecf0f1',
-    width: '100%',
-    marginTop: 8,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#3498db',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ecf0f1',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 15,
-  },
-  statsText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-  },
-  filterButton: {
-    backgroundColor: '#f0f8ff',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  filterText: {
-    color: '#3498db',
-    fontWeight: 'bold',
-  },
-  sectionContainer: {
-    marginTop: 8,
-    backgroundColor: '#f9f9f9',
-    marginHorizontal: 16,
-    borderRadius: 15,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#95a5a6',
-  },
   goalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row', 
+    alignItems: 'center', 
     padding: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
-  goalCheckCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  uncheckedCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: '#95a5a6',
-  },
-  checkedCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#3498db',
-    justifyContent: 'center',
-    alignItems: 'center',
+  goalCheckbox: {
+    width: 24, 
+    height: 24, 
+    borderWidth: 2, 
+    borderColor: '#3498db', 
+    borderRadius: 12,
+    marginRight: 10,
   },
   goalText: {
-    fontSize: 16,
-    color: '#34495e',
     flex: 1,
-  },
-  goalTextCompleted: {
     fontSize: 16,
-    color: '#95a5a6',
-    flex: 1,
-    textDecorationLine: 'line-through',
+    color: '#2c3e50',
   },
-  goalTime: {
-    fontSize: 14,
-    color: '#bdc3c7',
+  completedGoalsContainer: {
+    backgroundColor: 'white', 
+    margin: 16, 
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  editButton: {
-    marginLeft: 10,
-  },
-  editButtonEmoji: {
-    fontSize: 16,
-  },
-  quickAddContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  completedGoalsTitle: {
+    fontWeight: 'bold', 
     padding: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    marginTop: 8,
-    marginHorizontal: 16,
-    borderRadius: 15,
-  },
-  quickAddCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#95a5a6',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  quickAddPlus: {
     fontSize: 18,
-    color: '#95a5a6',
+    color: '#2c3e50',
   },
-  quickAddInput: {
+  completedGoalItem: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  completedGoalText: {
+    flex: 1, 
+    textDecorationLine: 'line-through',
+    color: '#7f8c8d',
     fontSize: 16,
-    color: '#34495e',
-    flex: 1,
   },
-  floatingAddButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#3498db',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '80%',
-    backgroundColor: 'white',
-    borderRadius: 10,
+    width: '80%', 
+    backgroundColor: 'white', 
+    borderRadius: 10, 
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 18, 
+    fontWeight: 'bold', 
     marginBottom: 15,
-    color: '#34495e',
+    color: '#2c3e50',
   },
   modalInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 20,
-    fontSize: 16,
+    borderWidth: 1, 
+    borderColor: '#ddd', 
+    borderRadius: 5, 
+    padding: 10, 
+    marginBottom: 15,
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
-  modalButtons: {
-    flexDirection: 'row',
+  modalButtonContainer: {
+    flexDirection: 'row', 
     justifyContent: 'flex-end',
   },
-  modalButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+  modalCancelButton: {
+    marginRight: 15, 
+    padding: 10,
+  },
+  modalCancelButtonText: {
+    color: '#3498db',
+    fontSize: 16,
+  },
+  modalSaveButton: {
+    backgroundColor: '#3498db', 
+    padding: 10, 
     borderRadius: 5,
-    marginLeft: 10,
   },
-  cancelButton: {
-    backgroundColor: '#ecf0f1',
-  },
-  cancelButtonText: {
-    color: '#34495e',
-  },
-  saveButton: {
-    backgroundColor: '#3498db',
-  },
-  saveButtonText: {
+  modalSaveButtonText: {
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });

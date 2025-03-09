@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { goodDeedService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import DateHeader from '../../components/DateHeader'; // Import DateHeader
+import { ModalConfig } from '@/models/types';
 
 // Types
 interface GoodnessItem {
@@ -25,12 +26,6 @@ interface GoodnessItem {
   text: string;
   timestamp: Date;
   date?: Date;
-}
-
-interface ModalConfig {
-  isVisible: boolean;
-  initialText: string;
-  editId: string | null;
 }
 
 export default function GoodDeedsScreen() {
