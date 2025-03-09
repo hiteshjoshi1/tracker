@@ -21,7 +21,7 @@ const LoginScreen = () => {
   // Redirect to tabs if already authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
-        router.replace('/today');
+        router.replace('/dashboard');
     }
   }, [isAuthenticated]);
 

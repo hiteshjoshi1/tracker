@@ -45,15 +45,15 @@ export default function TabsLayout() {
           tabBarActiveTintColor: '#3498db',
           tabBarInactiveTintColor: '#95a5a6',
           // Add logout button to all screen headers
-          headerRight: () => <LogoutButton />
+          headerRight: () => <LogoutButton />,
         }}
       >
         <Tabs.Screen
-          name="today"
+          name="dashboard"
           options={{
-            title: "Today",
+            title: "Dashboard",
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="today-outline" size={size} color={color} />
+              <Ionicons name="home-outline" size={size} color={color} />
             ),
           }}
         />
@@ -77,19 +77,6 @@ export default function TabsLayout() {
             ),
           }}
         />
-        
-        {/* Add your future tabs here */}
-        {/* 
-        <Tabs.Screen
-          name="progress"
-          options={{
-            title: "Progress",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="analytics-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        */}
       </Tabs>
     </AuthProtectedRoute>
   );

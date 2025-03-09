@@ -21,7 +21,7 @@ cd android
 ./gradlew assembleRelease
 
 APK file will be in
-android/app/build/outputs/apk/debug/app-debug.apk
+android/app/build/outputs/apk/release/app-release.apk
 
 Pair mac with Android and then use
 Bluetooth File Exchange

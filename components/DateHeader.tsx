@@ -13,17 +13,21 @@ interface DateHeaderProps {
   onDateChange?: (date: Date) => void;
   customStyle?: any;
   progressPercentage?: number; // Optional progress percentage for the progress bar
+  selectedDate?: Date; // Optional prop to control selected date externally
 }
 
 const DateHeader: React.FC<DateHeaderProps> = ({ 
   onDateChange, 
   customStyle,
-  progressPercentage 
+  progressPercentage,
+  selectedDate: controlledSelectedDate 
 }) => {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(
+    controlledSelectedDate || new Date()
+  );
   const [weekDates, setWeekDates] = useState<Date[]>([]);
   
-  // Update week dates when selected date changes
+  // Update week dates and notify parent when selected date changes
   useEffect(() => {
     const start = startOfWeek(selectedDate);
     const days = [];
@@ -37,6 +41,13 @@ const DateHeader: React.FC<DateHeaderProps> = ({
     }
   }, [selectedDate, onDateChange]);
 
+  // Update local state if controlled date changes
+  useEffect(() => {
+    if (controlledSelectedDate) {
+      setSelectedDate(controlledSelectedDate);
+    }
+  }, [controlledSelectedDate]);
+
   const handlePreviousDay = () => {
     setSelectedDate(subDays(selectedDate, 1));
   };
@@ -49,38 +60,12 @@ const DateHeader: React.FC<DateHeaderProps> = ({
     setSelectedDate(subDays(selectedDate, 7));
   };
 
+  const handleNextWeek = () => {
+    setSelectedDate(addDays(selectedDate, 7));
+  };
+
   const handleSelectDay = (date: Date) => {
     setSelectedDate(date);
-  };
-
-  // Format date for display
-  const getFormattedDate = () => {
-    return format(selectedDate, 'MMMM d, yyyy');
-  };
-
-  // Format day of week
-  const getDayOfWeek = () => {
-    return format(selectedDate, 'EEEE');
-  };
-
-  // Get day number
-  const getDayNumber = (date: Date) => {
-    return format(date, 'd');
-  };
-
-  // Get day name (3 letters)
-  const getDayName = (date: Date) => {
-    return format(date, 'EEE');
-  };
-
-  // Check if a date is selected
-  const isSelected = (date: Date) => {
-    return isSameDay(date, selectedDate);
-  };
-
-  // Check if a date is today
-  const isCurrentDay = (date: Date) => {
-    return isToday(date);
   };
 
   return (
@@ -99,8 +84,8 @@ const DateHeader: React.FC<DateHeaderProps> = ({
           </TouchableOpacity>
           
           <View style={styles.dateTextContainer}>
-            <Text style={styles.dateText}>{getFormattedDate()}</Text>
-            <Text style={styles.dayText}>{getDayOfWeek()}</Text>
+            <Text style={styles.dateText}>{format(selectedDate, 'MMMM d, yyyy')}</Text>
+            <Text style={styles.dayText}>{isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}</Text>
           </View>
           
           <TouchableOpacity 
@@ -123,23 +108,23 @@ const DateHeader: React.FC<DateHeaderProps> = ({
           <View style={styles.daysContainer}>
             {weekDates.map((date, index) => (
               <View key={index} style={styles.dayColumn}>
-                <Text style={styles.dayNameText}>{getDayName(date)}</Text>
+                <Text style={styles.dayNameText}>{format(date, 'EEE')}</Text>
                 <TouchableOpacity
                   onPress={() => handleSelectDay(date)}
                   style={[
                     styles.dayNumberContainer,
-                    isSelected(date) && styles.selectedDayContainer,
-                    isCurrentDay(date) && !isSelected(date) && styles.todayContainer
+                    isSameDay(date, selectedDate) && styles.selectedDayContainer,
+                    isToday(date) && !isSameDay(date, selectedDate) && styles.todayContainer
                   ]}
                 >
                   <Text 
                     style={[
                       styles.dayNumberText,
-                      isSelected(date) && styles.selectedDayText,
-                      isCurrentDay(date) && !isSelected(date) && styles.todayText
+                      isSameDay(date, selectedDate) && styles.selectedDayText,
+                      isToday(date) && !isSameDay(date, selectedDate) && styles.todayText
                     ]}
                   >
-                    {getDayNumber(date)}
+                    {format(date, 'd')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -147,7 +132,7 @@ const DateHeader: React.FC<DateHeaderProps> = ({
           </View>
           
           <TouchableOpacity 
-            onPress={() => setSelectedDate(addDays(selectedDate, 7))}
+            onPress={handleNextWeek}
             style={styles.weekNavButton}
           >
             <Text style={styles.weekNavButtonText}>{'>'}</Text>
@@ -174,7 +159,6 @@ const DateHeader: React.FC<DateHeaderProps> = ({
     </LinearGradient>
   );
 };
-
 const styles = StyleSheet.create({
   gradientContainer: {
     paddingTop: 40,

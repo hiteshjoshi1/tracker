@@ -1,3 +1,4 @@
+// app/_layout.tsx
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -50,6 +51,14 @@ export default function RootLayout() {
               name="(tabs)"
               options={{
                 headerShown: false,
+              }}
+            />
+            {/* Add this to support modal screens */}
+            <Stack.Screen
+              name="(modals)"
+              options={{
+                headerShown: false,
+                presentation: 'modal',
               }}
             />
           </Stack>
