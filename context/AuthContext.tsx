@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Navigate to home screen
           setLoadingMessage('Redirecting to app...');
-          router.replace('/today');
+          router.replace('/dashboard');
           return null;
         } 
         // If we got an authorization code instead (default responseType)
