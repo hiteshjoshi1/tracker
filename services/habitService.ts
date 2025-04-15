@@ -1,4 +1,4 @@
-// Enhanced HabitService.ts with notification support
+// Enhanced HabitService.ts with review functionality support
 
 import { FirebaseService } from './firebaseService';
 import { Habit } from '../models/types';
@@ -10,7 +10,23 @@ import {
   orderBy,
   QueryConstraint
 } from 'firebase/firestore';
-import { startOfDay, endOfDay, isSameDay, format, differenceInDays, addDays } from 'date-fns';
+import { 
+  startOfDay, 
+  endOfDay, 
+  isSameDay, 
+  format, 
+  differenceInDays, 
+  addDays, 
+  subDays,
+  isSameMonth,
+  startOfMonth,
+  endOfMonth,
+  getDay,
+  startOfWeek,
+  endOfWeek,
+  getMonth,
+  getYear
+} from 'date-fns';
 import { NotificationService } from './notificationService';
 
 export class HabitService extends FirebaseService<Habit> {
@@ -230,6 +246,199 @@ export class HabitService extends FirebaseService<Habit> {
     );
   }
 
+  // NEW: Get habits with data for the last 7 days
+  async getHabitsForLastWeek(userId: string): Promise<Habit[]> {
+    // Get all habits for the user
+    const habits = await this.getUserHabits(userId);
+    
+    // We'll use the completionHistory field that's already in each habit
+    // This field contains the status for each date, so we don't need
+    // to query for additional data
+    
+    return habits;
+  }
+  
+  // NEW: Calculate completion rate for a habit in a date range
+  calculateCompletionRate(habit: Habit, startDate: Date, endDate: Date): number {
+    if (!habit.completionHistory) return 0;
+    
+    let completedDays = 0;
+    let trackedDays = 0;
+    let currentDate = startOfDay(startDate);
+    const lastDate = endOfDay(endDate);
+    
+    while (currentDate <= lastDate) {
+      const dateStr = format(currentDate, 'yyyy-MM-dd');
+      const status = habit.completionHistory[dateStr];
+      
+      if (status === 'completed' || status === 'failed') {
+        trackedDays++;
+        if (status === 'completed') {
+          completedDays++;
+        }
+      }
+      
+      currentDate = addDays(currentDate, 1);
+    }
+    
+    return trackedDays > 0 ? (completedDays / trackedDays) * 100 : 0;
+  }
+
+  // NEW: Get a summary of habits completion by day of week
+  getDayOfWeekStats(habit: Habit): { [key: string]: { total: number, completed: number, rate: number } } {
+    if (!habit.completionHistory) {
+      return {};
+    }
+    
+    // Initialize stats for each day of the week
+    const dayStats: { [key: string]: { total: number, completed: number, rate: number } } = {
+      'Sunday': { total: 0, completed: 0, rate: 0 },
+      'Monday': { total: 0, completed: 0, rate: 0 },
+      'Tuesday': { total: 0, completed: 0, rate: 0 },
+      'Wednesday': { total: 0, completed: 0, rate: 0 },
+      'Thursday': { total: 0, completed: 0, rate: 0 },
+      'Friday': { total: 0, completed: 0, rate: 0 },
+      'Saturday': { total: 0, completed: 0, rate: 0 }
+    };
+    
+    // Days of the week array for lookup
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    // Loop through all dates in completion history
+    Object.keys(habit.completionHistory).forEach(dateStr => {
+      const status = habit.completionHistory ? habit.completionHistory[dateStr] : 'untracked';
+      if (status === 'completed' || status === 'failed') {
+        // Parse the date and get the day of week
+        const date = new Date(dateStr);
+        const dayOfWeek = daysOfWeek[getDay(date)];
+        
+        // Update stats for this day
+        dayStats[dayOfWeek].total++;
+        if (status === 'completed') {
+          dayStats[dayOfWeek].completed++;
+        }
+      }
+    });
+    
+    // Calculate completion rates for each day
+    Object.keys(dayStats).forEach(day => {
+      const { total, completed } = dayStats[day];
+      dayStats[day].rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    });
+    
+    return dayStats;
+  }
+  
+  // NEW: Get monthly statistics for a habit
+  getMonthlyStats(habit: Habit): { [key: string]: { total: number, completed: number, rate: number } } {
+    if (!habit.completionHistory) {
+      return {};
+    }
+    
+    const monthStats: { [key: string]: { total: number, completed: number, rate: number } } = {};
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    // Loop through all dates in completion history
+    Object.keys(habit.completionHistory).forEach(dateStr => {
+      const status = habit.completionHistory ? habit.completionHistory[dateStr] : 'untracked';
+      if (status === 'completed' || status === 'failed') {
+        // Parse the date and get the month and year
+        const date = new Date(dateStr);
+        const month = months[getMonth(date)];
+        const year = getYear(date);
+        const monthYearKey = `${month} ${year}`;
+        
+        // Initialize the month stats if not present
+        if (!monthStats[monthYearKey]) {
+          monthStats[monthYearKey] = { total: 0, completed: 0, rate: 0 };
+        }
+        
+        // Update stats for this month
+        monthStats[monthYearKey].total++;
+        if (status === 'completed') {
+          monthStats[monthYearKey].completed++;
+        }
+      }
+    });
+    
+    // Calculate completion rates for each month
+    Object.keys(monthStats).forEach(monthYear => {
+      const { total, completed } = monthStats[monthYear];
+      monthStats[monthYear].rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    });
+    
+    return monthStats;
+  }
+  
+  // NEW: Get streak data for visualization
+  getStreakData(habit: Habit): { startDate: string, endDate: string, length: number }[] {
+    if (!habit.completionHistory) {
+      return [];
+    }
+    
+    const streaks: { startDate: string, endDate: string, length: number }[] = [];
+    let currentStreak: { startDate: string | null, endDate: string | null, length: number } = {
+      startDate: null,
+      endDate: null,
+      length: 0
+    };
+    
+    // Sort dates in ascending order
+    const sortedDates = Object.keys(habit.completionHistory || {})
+    .filter(dateStr => habit.completionHistory && habit.completionHistory[dateStr] === 'completed')
+    .sort((a, b) => (a > b ? 1 : -1));
+
+
+    
+    if (sortedDates.length === 0) {
+      return [];
+    }
+    
+    // Find consecutive streaks
+    let prevDate: Date | null = null;
+    
+    sortedDates.forEach(dateStr => {
+      const currentDate = new Date(dateStr);
+      
+      // If this is the first date or there's a gap
+      if (!prevDate || differenceInDays(currentDate, prevDate) > 1) {
+        // Save the previous streak if it exists
+        if (currentStreak.startDate && currentStreak.length > 0) {
+          streaks.push({
+            startDate: currentStreak.startDate,
+            endDate: currentStreak.endDate!,
+            length: currentStreak.length
+          });
+        }
+        
+        // Start a new streak
+        currentStreak = {
+          startDate: dateStr,
+          endDate: dateStr,
+          length: 1
+        };
+      } else if (differenceInDays(currentDate, prevDate) === 1) {
+        // Continue the current streak
+        currentStreak.endDate = dateStr;
+        currentStreak.length++;
+      }
+      
+      prevDate = currentDate;
+    });
+    
+    // Add the last streak
+    if (currentStreak.startDate && currentStreak.length > 0) {
+      streaks.push({
+        startDate: currentStreak.startDate,
+        endDate: currentStreak.endDate!,
+        length: currentStreak.length
+      });
+    }
+    
+    return streaks;
+  }
+
   // Original update habit status method (kept for backward compatibility)
   async updateHabitStatus(
     habitId: string, 
@@ -251,5 +460,4 @@ export class HabitService extends FirebaseService<Habit> {
     }
   }
 }
-
 export const habitService = new HabitService();
