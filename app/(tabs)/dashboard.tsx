@@ -1,5 +1,6 @@
 // app/(tabs)/dashboard.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -114,7 +115,7 @@ export default function Dashboard() {
     let totalActualCompletions = 0;
     
     // Get last 7 days
-    const last7Days = [];
+    const last7Days: any[] = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
@@ -819,19 +820,227 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: 12,
   },
-  permissionButton: {
-    backgroundColor: '#3498db',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
+  // Screen Time Card - Completely New UX
+  screenTimeCard: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    marginHorizontal: 16,
+    marginBottom: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  permissionButtonText: {
+  // Hero Section - Big Time Display
+  heroContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#667eea',
+  },
+  heroContent: {
+    flex: 1,
+  },
+  heroLabel: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  heroTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  heroHours: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: 'white',
+    lineHeight: 48,
+  },
+  heroHoursLabel: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.8)',
+    marginRight: 8,
+    marginLeft: 2,
+  },
+  heroMinutes: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: 'white',
+    lineHeight: 32,
+  },
+  heroMinutesLabel: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    marginLeft: 2,
+  },
+  highUsageBar: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  goodUsageBar: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  statusText: {
     color: 'white',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  phoneIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  phoneIcon: {
+    fontSize: 28,
+  },
+  // Quick Stats Grid
+  quickStatsGrid: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 16,
+  },
+  quickStatCard: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  quickStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  quickStatLabel: {
+    fontSize: 13,
+    color: '#64748b',
     fontWeight: '500',
+  },
+  // Timeline
+  timelineContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  timelineTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 16,
+  },
+  timelineItems: {
+    gap: 12,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 16,
+  },
+  morningDot: {
+    backgroundColor: '#fbbf24',
+  },
+  eveningDot: {
+    backgroundColor: '#8b5cf6',
+  },
+  timelineContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timelineTime: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  timelineLabel: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  // Permission State
+  permissionContainer: {
+    padding: 32,
+  },
+  permissionContent: {
+    alignItems: 'center',
+  },
+  permissionIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f0f9ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  permissionIconLarge: {
+    fontSize: 36,
+  },
+  permissionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionSubtitle: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  enableButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  enableButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingState: {
+    padding: 40,
+    alignItems: 'center',
   },
   bottomPadding: {
     height: 24,
   },
+  permissionButton: {
+    backgroundColor: '#3498db',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#3498db',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  }
 });
