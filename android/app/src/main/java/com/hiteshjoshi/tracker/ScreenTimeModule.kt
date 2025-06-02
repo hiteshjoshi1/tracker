@@ -30,7 +30,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
             val queryUsageStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
             val hasPermission = queryUsageStats.isNotEmpty()
             
-            Log.d(TAG, "hasUsageStatsPermission: $hasPermission")
             promise.resolve(hasPermission)
         } catch (e: Exception) {
             Log.e(TAG, "Error checking permission", e)
@@ -44,7 +43,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
             val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             reactApplicationContext.startActivity(intent)
-            Log.d(TAG, "Opened usage stats settings")
         } catch (e: Exception) {
             Log.e(TAG, "Error opening settings", e)
         }
@@ -57,17 +55,12 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
             
             // Today's data - from midnight to now
             val calendarToday = Calendar.getInstance()
-            val currentHour = calendarToday.get(Calendar.HOUR_OF_DAY)
-            val currentMinute = calendarToday.get(Calendar.MINUTE)
-            
             calendarToday.set(Calendar.HOUR_OF_DAY, 0)
             calendarToday.set(Calendar.MINUTE, 0)
             calendarToday.set(Calendar.SECOND, 0)
             calendarToday.set(Calendar.MILLISECOND, 0)
             val startToday = calendarToday.timeInMillis
             val endToday = System.currentTimeMillis()
-            
-            Log.d(TAG, "Today range: ${Date(startToday)} to ${Date(endToday)}")
             
             // Yesterday's data - full day
             val calendarYesterday = Calendar.getInstance()
@@ -81,8 +74,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
             calendarYesterday.add(Calendar.DAY_OF_YEAR, 1) // Move back to end of yesterday
             val endYesterday = calendarYesterday.timeInMillis
             
-            Log.d(TAG, "Yesterday range: ${Date(startYesterday)} to ${Date(endYesterday)}")
-            
             // This week's data
             val calendarWeek = Calendar.getInstance()
             calendarWeek.add(Calendar.DAY_OF_YEAR, -7)
@@ -92,18 +83,26 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
             calendarWeek.set(Calendar.MILLISECOND, 0)
             val startWeek = calendarWeek.timeInMillis
             
-            // Get usage stats - use INTERVAL_BEST for more accurate data
+            // Get usage stats
             val todayStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, startToday, endToday)
+            val yesterdayStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, startYesterday, endYesterday)
             val weekStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_WEEKLY, startWeek, endToday)
             
             var todayScreenTime = 0L
+            var yesterdayScreenTime = 0L
             var weekScreenTime = 0L
             
-            // Calculate today's screen time - sum all app usage
+            // Calculate today's screen time
             for (usageStats in todayStats) {
                 if (usageStats.totalTimeInForeground > 0) {
                     todayScreenTime += usageStats.totalTimeInForeground
-                    Log.d(TAG, "App ${usageStats.packageName}: ${usageStats.totalTimeInForeground / 1000}s")
+                }
+            }
+            
+            // Calculate yesterday's screen time
+            for (usageStats in yesterdayStats) {
+                if (usageStats.totalTimeInForeground > 0) {
+                    yesterdayScreenTime += usageStats.totalTimeInForeground
                 }
             }
             
@@ -113,9 +112,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
                     weekScreenTime += usageStats.totalTimeInForeground
                 }
             }
-            
-            Log.d(TAG, "Total today screen time: ${todayScreenTime / 1000}s")
-            Log.d(TAG, "Total week screen time: ${weekScreenTime / 1000}s")
             
             // Get first use today using UsageEvents
             var firstUseToday = 0L
@@ -130,7 +126,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
                     event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
                     if (firstUseToday == 0L || event.timeStamp < firstUseToday) {
                         firstUseToday = event.timeStamp
-                        Log.d(TAG, "First use today: ${Date(firstUseToday)} from ${event.packageName}")
                     }
                 }
             }
@@ -143,7 +138,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
                         firstUseToday = usageStats.firstTimeStamp
                     }
                 }
-                Log.d(TAG, "First use today from stats: ${Date(firstUseToday)}")
             }
             
             // Get last use yesterday using UsageEvents
@@ -159,18 +153,12 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
                     event.eventType == UsageEvents.Event.ACTIVITY_PAUSED) {
                     if (event.timeStamp > lastUseYesterday) {
                         lastUseYesterday = event.timeStamp
-                        Log.d(TAG, "Last use yesterday: ${Date(lastUseYesterday)} from ${event.packageName}")
                     }
                 }
             }
             
             // Fallback: use stats if no events found
             if (lastUseYesterday == 0L) {
-                val yesterdayStats = usageStatsManager.queryUsageStats(
-                    UsageStatsManager.INTERVAL_DAILY, 
-                    startYesterday, 
-                    endYesterday
-                )
                 for (usageStats in yesterdayStats) {
                     if (usageStats.lastTimeUsed > lastUseYesterday && 
                         usageStats.totalTimeInForeground > 0 &&
@@ -178,7 +166,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
                         lastUseYesterday = usageStats.lastTimeUsed
                     }
                 }
-                Log.d(TAG, "Last use yesterday from stats: ${Date(lastUseYesterday)}")
             }
             
             val result = WritableNativeMap().apply {
@@ -188,12 +175,6 @@ class ScreenTimeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 putDouble("firstUseToday", firstUseToday.toDouble())
                 putDouble("lastUseYesterday", lastUseYesterday.toDouble())
             }
-            
-            Log.d(TAG, "Returning data: todayScreenTime=${todayScreenTime/(1000*60)}min, " +
-                    "yesterdayScreenTime=${yesterdayScreenTime/(1000*60)}min, " +
-                    "weekScreenTime=${weekScreenTime/(1000*60)}min, " +
-                    "firstUseToday=${if (firstUseToday > 0) Date(firstUseToday) else "N/A"}, " +
-                    "lastUseYesterday=${if (lastUseYesterday > 0) Date(lastUseYesterday) else "N/A"}")
             
             promise.resolve(result)
         } catch (e: Exception) {

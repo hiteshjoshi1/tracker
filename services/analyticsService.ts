@@ -144,7 +144,25 @@ export class AnalyticsService {
       const totalGoodDeeds = todayGoodDeeds.docs.length;
       const totalReflections = todayReflections.docs.length;
 
-      // Quick habit stats (just active streaks for today view)
+      // Calculate today's habit rate - count ALL habits as daily targets
+      const todayStr = format(today, 'yyyy-MM-dd');
+      let todayHabitsCompleted = 0;
+
+      allHabits.forEach(habit => {
+        if (!habit.completionHistory) return;
+        
+        const status = habit.completionHistory[todayStr];
+        if (status === 'completed') {
+          todayHabitsCompleted++;
+        }
+      });
+
+      // Rate = completed habits / total habits (all habits are daily targets)
+      const todayHabitRate = allHabits.length > 0 
+        ? Math.round((todayHabitsCompleted / allHabits.length) * 100) 
+        : 0;
+
+      // Count active streaks (habits with streak >= 2 and completed yesterday)
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
@@ -163,7 +181,7 @@ export class AnalyticsService {
         },
         habits: { 
           completed: activeStreaks, 
-          rate: 0, // Will be calculated when user clicks week/month
+          rate: todayHabitRate, // ✅ Now calculates actual today's rate
           totalHabits: allHabits.length 
         },
         goodDeeds: { total: totalGoodDeeds },
@@ -208,7 +226,6 @@ export class AnalyticsService {
 
   // Calculate habit stats from completion history (no Firebase calls)
   private calculateHabitStats(habits: any[], startDate: Date, endDate: Date) {
-    let totalPossible = 0;
     let totalCompleted = 0;
     
     // Generate date strings for the period
@@ -219,20 +236,20 @@ export class AnalyticsService {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Calculate completion rate from completion history
+    // Calculate completion rate - count ALL habits as daily targets
     habits.forEach(habit => {
       if (!habit.completionHistory) return;
       
       dates.forEach(dateStr => {
         const status = habit.completionHistory[dateStr];
-        if (status === 'completed' || status === 'failed') {
-          totalPossible++;
-          if (status === 'completed') {
-            totalCompleted++;
-          }
+        if (status === 'completed') {
+          totalCompleted++;
         }
       });
     });
+
+    // Total possible completions = all habits × all days in period
+    const totalPossible = habits.length * dates.length;
 
     // Count active streaks (habits with streak >= 2 and completed yesterday)
     const yesterday = new Date();
