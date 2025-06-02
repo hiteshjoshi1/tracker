@@ -25,8 +25,8 @@ const HabitsScreen: React.FC = () => {
   const [isAddingHabit, setIsAddingHabit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const { userInfo } = useAuth(); // Access the current user from auth context
-  const { scheduleDailyReminder, cancelReminder, rescheduleAllReminders } = useNotifications(); // Add this line
+  const { userInfo } = useAuth();
+  const { scheduleDailyReminder, cancelReminder, rescheduleAllReminders } = useNotifications();
 
   useEffect(() => {
     if (userInfo?.uid) {
@@ -65,12 +65,7 @@ const HabitsScreen: React.FC = () => {
     if (!userInfo?.uid) throw new Error("User not logged in");
 
     try {
-      // Add the habit to the database
       const habitId = await habitService.addHabit(userInfo.uid, habitData);
-      
-      // Note: We don't need to manually schedule notifications here anymore
-      // The AddHabitModal component will handle that with useNotifications hook
-      
       return habitId;
     } catch (error) {
       console.error('Error adding habit:', error);
@@ -79,20 +74,27 @@ const HabitsScreen: React.FC = () => {
     }
   };
 
-  // Handle editing a habit (if you implement an edit feature)
+  // Simplified habit status toggle - only completed/untracked
+  const toggleHabitStatus = async (habit: Habit, date: Date = selectedDate) => {
+    try {
+      const currentStatus = getStatusForSelectedDate(habit);
+      const newStatus = currentStatus === 'completed' ? 'untracked' : 'completed';
+
+      await habitService.updateHabitStatusForDate(habit.id, newStatus, date, habit);
+    } catch (error) {
+      console.error('Error updating habit status:', error);
+      Alert.alert('Error', 'Failed to update habit status. Please try again.');
+    }
+  };
+
   const handleEditHabit = async (habitId: string, updates: Partial<Habit>) => {
     try {
       await habitService.updateHabit(habitId, updates);
-      
-      // If reminder time or days changed, update notifications
+
       if ('reminderTime' in updates || 'reminderDays' in updates) {
-        // Get the updated habit
         const updatedHabit = habits.find(h => h.id === habitId);
         if (updatedHabit) {
-          // Cancel existing notifications
           await cancelReminder(habitId);
-          
-          // Schedule new notifications if there's a reminder time
           if (updatedHabit.reminderTime) {
             await scheduleDailyReminder(updatedHabit);
           }
@@ -104,26 +106,9 @@ const HabitsScreen: React.FC = () => {
     }
   };
 
-  const updateHabitStatus = async (
-    habit: Habit,
-    newStatus: 'completed' | 'failed' | 'untracked',
-    date: Date = selectedDate // Use selectedDate as default, allowing custom date parameter
-  ) => {
-    try {
-      await habitService.updateHabitStatusForDate(habit.id, newStatus, date, habit);
-    } catch (error) {
-      console.error('Error updating habit status:', error);
-      Alert.alert('Error', 'Failed to update habit status. Please try again.');
-    }
-  };
-
-  // Handle deleting a habit (if you implement a delete feature)
   const handleDeleteHabit = async (habitId: string) => {
     try {
-      // Cancel notifications first
       await cancelReminder(habitId);
-      
-      // Then delete the habit
       await habitService.deleteHabit(habitId);
     } catch (error) {
       console.error('Error deleting habit:', error);
@@ -131,16 +116,13 @@ const HabitsScreen: React.FC = () => {
     }
   };
 
-  const isTrackedOnDate = (habit: Habit, date: Date = selectedDate) => {
-    // Check completion history first if available
+  const isCompletedOnDate = (habit: Habit, date: Date = selectedDate) => {
     if (habit.completionHistory) {
       const dateStr = format(date, 'yyyy-MM-dd');
       return habit.completionHistory[dateStr] === 'completed';
     }
 
-    // Fall back to checking lastCompleted
     if (!habit.lastCompleted) return false;
-
     return isSameDay(new Date(habit.lastCompleted), date) && habit.status === 'completed';
   };
 
@@ -155,7 +137,6 @@ const HabitsScreen: React.FC = () => {
       return `Today at ${hours}:${minutes}`;
     }
 
-    // Show date for non-today completions
     if (isSameDay(last, selectedDate)) {
       const hours = last.getHours().toString().padStart(2, '0');
       const minutes = last.getMinutes().toString().padStart(2, '0');
@@ -173,47 +154,39 @@ const HabitsScreen: React.FC = () => {
     return '#95a5a6';
   };
 
-  // Sort habits by reminder time
   const sortHabitsByReminderTime = (habits: Habit[]): Habit[] => {
     return [...habits].sort((a, b) => {
-      // If either habit doesn't have a reminder time, place it at the end
       if (!a.reminderTime) return 1;
       if (!b.reminderTime) return -1;
 
-      // Parse times for comparison (format is "hh:mm a", e.g. "08:30 AM")
       const timeA = parseReminderTime(a.reminderTime);
       const timeB = parseReminderTime(b.reminderTime);
 
-      // Compare the parsed 24-hour time values
       return timeA - timeB;
     });
   };
 
-  // Helper function to parse reminder time strings to comparable values
   const parseReminderTime = (timeString: string): number => {
     try {
       const [time, period] = timeString.split(' ');
       let [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
 
-      // Convert to 24-hour format for proper comparison
       if (period && period.toLowerCase() === 'pm' && hours < 12) {
         hours += 12;
       } else if (period && period.toLowerCase() === 'am' && hours === 12) {
         hours = 0;
       }
 
-      return hours * 60 + minutes; // Convert to minutes for comparison
+      return hours * 60 + minutes;
     } catch (error) {
       console.error('Error parsing time:', timeString, error);
       return 0;
     }
   };
 
-  // Generate a week view for the selected date's week
   const generateWeekDays = () => {
-    // Start from Monday of the week containing the selectedDate
-    const currentDay = selectedDate.getDay(); // 0 for Sunday, 1 for Monday, etc.
-    const startDay = subDays(selectedDate, currentDay === 0 ? 6 : currentDay - 1); // Start from Monday
+    const currentDay = selectedDate.getDay();
+    const startDay = subDays(selectedDate, currentDay === 0 ? 6 : currentDay - 1);
 
     return Array.from({ length: 7 }).map((_, index) => {
       const date = addDays(startDay, index);
@@ -232,40 +205,30 @@ const HabitsScreen: React.FC = () => {
 
   const weekDays = generateWeekDays();
 
-  // Check if a habit was completed on a specific date
   const wasCompletedOnDate = (habit: Habit, date: Date): boolean => {
     if (!habit.completionHistory) {
-      // If no completion history exists, fall back to checking lastCompleted
-      // Make sure we handle null/undefined properly
       if (!habit.lastCompleted) return false;
-
       return isSameDay(new Date(habit.lastCompleted), date) && habit.status === 'completed';
     }
 
-    // Otherwise check the completion history
     const dateStr = format(date, 'yyyy-MM-dd');
     return habit.completionHistory[dateStr] === 'completed';
   };
 
-  // Handle date change from DateHeader
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
   };
 
-  // Get status for the currently selected date
   const getStatusForSelectedDate = (habit: Habit) => {
-    // If checking for today, use the current status property
     if (isToday(selectedDate)) {
       return habit.status;
     }
 
-    // Check completion history if available
     if (habit.completionHistory) {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       return habit.completionHistory[dateStr] || 'untracked';
     }
 
-    // Fall back to last completed date 
     if (habit.lastCompleted && isSameDay(new Date(habit.lastCompleted), selectedDate)) {
       return 'completed';
     }
@@ -284,7 +247,6 @@ const HabitsScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Use the DateHeader component */}
       <DateHeader onDateChange={handleDateChange} />
 
       <TouchableOpacity
@@ -300,7 +262,6 @@ const HabitsScreen: React.FC = () => {
         onAdd={handleAddHabit}
       />
 
-      {/* Display date information if not today */}
       {!isToday(selectedDate) && (
         <View style={styles.selectedDateInfo}>
           <Text style={styles.selectedDateText}>
@@ -318,7 +279,7 @@ const HabitsScreen: React.FC = () => {
       ) : (
         <View style={styles.habitsList}>
           {sortHabitsByReminderTime(habits).map(habit => {
-            const currentStatus = getStatusForSelectedDate(habit);
+            const isCompleted = isCompletedOnDate(habit, selectedDate);
 
             return (
               <View key={habit.id} style={styles.habitCard}>
@@ -329,10 +290,10 @@ const HabitsScreen: React.FC = () => {
                       <Text style={styles.habitDescription}>{habit.description}</Text>
                     )}
 
-                    {currentStatus === 'untracked' && (
+                    {!isCompleted && !isToday(selectedDate) && (
                       <View style={styles.notTrackedBadge}>
                         <Text style={styles.notTrackedText}>
-                          Not tracked {isToday(selectedDate) ? 'today' : 'on this date'}
+                          Not done on this date
                         </Text>
                       </View>
                     )}
@@ -346,44 +307,18 @@ const HabitsScreen: React.FC = () => {
 
                   <View style={styles.habitControls}>
                     <TouchableOpacity
-                      onPress={() => updateHabitStatus(habit, 'completed', selectedDate)}
+                      onPress={() => toggleHabitStatus(habit, selectedDate)}
                       style={[
                         styles.habitButton,
-                        currentStatus === 'completed' && styles.activeButton,
-                        styles.completeButton,
-                        isTrackedOnDate(habit, selectedDate) && styles.trackedTodayButton
+                        isCompleted ? styles.completedButton : styles.notCompletedButton
                       ]}
                     >
                       <Text style={[
                         styles.buttonIcon,
-                        currentStatus === 'completed' && styles.activeButtonText
-                      ]}>✓</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => updateHabitStatus(habit, 'untracked', selectedDate)}
-                      style={[
-                        styles.habitButton,
-                        currentStatus === 'untracked' && styles.activeButton,
-                        styles.untrackedButton
-                      ]}
-                    >
-                      <Text style={[
-                        styles.buttonIcon,
-                        currentStatus === 'untracked' && styles.activeButtonText
-                      ]}>-</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => updateHabitStatus(habit, 'failed', selectedDate)}
-                      style={[
-                        styles.habitButton,
-                        currentStatus === 'failed' && styles.activeButton,
-                        styles.failButton
-                      ]}
-                    >
-                      <Text style={[
-                        styles.buttonIcon,
-                        currentStatus === 'failed' && styles.activeButtonText
-                      ]}>✗</Text>
+                        isCompleted ? styles.completedButtonText : styles.notCompletedButtonText
+                      ]}>
+                        {isCompleted ? '✓' : '+'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -398,7 +333,6 @@ const HabitsScreen: React.FC = () => {
                       isToday={day.isToday}
                       isSelected={day.isSelected}
                       onPress={() => {
-                        // Set the selected date to this day and update UI
                         handleDateChange(day.fullDate);
                       }}
                     />
@@ -547,38 +481,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   habitButton: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 18,
-    backgroundColor: '#f0f0f0',
+    borderRadius: 24,
     borderWidth: 2,
-    borderColor: 'transparent',
+  },
+  completedButton: {
+    backgroundColor: '#27ae60',
+    borderColor: '#27ae60',
+  },
+  notCompletedButton: {
+    backgroundColor: '#f8f9fa',
+    borderColor: '#e9ecef',
   },
   buttonIcon: {
-    fontSize: 18,
-    color: '#95a5a6',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
-  activeButton: {
-    backgroundColor: '#e8f5e9',
-    borderColor: '#2c3e50',
+  completedButtonText: {
+    color: '#fff',
   },
-  activeButtonText: {
-    color: '#2c3e50',
-  },
-  completeButton: {
-    backgroundColor: '#e8f5e9',
-  },
-  untrackedButton: {
-    backgroundColor: '#f5f5f5',
-  },
-  failButton: {
-    backgroundColor: '#ffebee',
-  },
-  trackedTodayButton: {
-    borderColor: '#27ae60',
-    borderWidth: 2,
+  notCompletedButtonText: {
+    color: '#adb5bd',
   },
   notTrackedBadge: {
     backgroundColor: '#fff3e0',

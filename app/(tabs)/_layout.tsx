@@ -18,8 +18,8 @@ export default function TabsLayout() {
           text: "Cancel",
           style: "cancel"
         },
-        { 
-          text: "Sign Out", 
+        {
+          text: "Sign Out",
           onPress: () => signOut(),
           style: "destructive"
         }
@@ -29,7 +29,7 @@ export default function TabsLayout() {
 
   // Create logout button component for header
   const LogoutButton = () => (
-    <TouchableOpacity 
+    <TouchableOpacity
       onPress={handleLogout}
       style={{ marginRight: 16 }}
     >
@@ -57,7 +57,7 @@ export default function TabsLayout() {
             ),
           }}
         />
-        
+
         <Tabs.Screen
           name="habits"
           options={{
@@ -67,16 +67,29 @@ export default function TabsLayout() {
             ),
           }}
         />
+
         <Tabs.Screen
-        name="review"
-        options={{
-          title: 'Review',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart" size={size} color={color} />
-          ),
-        }}
-      />
-        
+          name="goals"
+          options={{
+            title: "Goals",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="checkmark-circle-outline" size={size} color={color} />
+            ),
+          }}
+        />
+
+
+
+        <Tabs.Screen
+          name="journal"
+          options={{
+            title: "Journal",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="book-outline" size={size} color={color} />
+            ),
+          }}
+        />
+
         <Tabs.Screen
           name="quotes"
           options={{
