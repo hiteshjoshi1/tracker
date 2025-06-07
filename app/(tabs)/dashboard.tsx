@@ -17,8 +17,6 @@ import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { format } from 'date-fns';
 import { quoteService } from '../../services/quoteService';
-import { goalService, goodDeedService, reflectionService } from '../../services/firebaseService';
-import { habitService } from '../../services/habitService';
 import { analyticsService, PeriodStats } from '../../services/analyticsService';
 import { Quote } from '../../models/types';
 
@@ -145,21 +143,36 @@ export default function Dashboard() {
 
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     if (!initialLoadDone && userInfo?.uid) {
+  //       loadEssentialData()
+  //         .then(() => {
+  //           setInitialLoadDone(true);
+  //           // Load screen time in background
+  //           loadScreenTimeInfo();
+  //         })
+  //         .catch(err => {
+  //           console.error('Error loading essential data:', err);
+  //           setLoading(false);
+  //         });
+  //     }
+  //   }, [userInfo?.uid])
+  // );
+
   useFocusEffect(
     React.useCallback(() => {
       if (!initialLoadDone && userInfo?.uid) {
         loadEssentialData()
           .then(() => {
             setInitialLoadDone(true);
-            // Load screen time in background
-            loadScreenTimeInfo();
-          })
-          .catch(err => {
-            console.error('Error loading essential data:', err);
-            setLoading(false);
+            loadScreenTimeInfo(); // Initial load
           });
+      } else if (initialLoadDone) {
+        // Smart update: refresh screen time when returning to dashboard
+        loadScreenTimeInfo();
       }
-    }, [userInfo?.uid])
+    }, [userInfo?.uid, initialLoadDone])
   );
 
   // Get current stats based on view period
