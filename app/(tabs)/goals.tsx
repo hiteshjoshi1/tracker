@@ -207,16 +207,9 @@ export default function GoalsScreen() {
 
         {/* Active Goals Section */}
         <View style={styles.activeGoalsContainer}>
-          <View style={styles.activeGoalsHeader}>
-            <Text style={styles.activeGoalsTitle}>Active Goals</Text>
-            <TouchableOpacity 
-              onPress={() => handleOpenGoalModal()}
-              style={styles.addGoalButton}
-            >
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.addGoalButtonText}>Add Goal</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.activeGoalsHeader}>
+          <Text style={styles.activeGoalsTitle}>Active Goals</Text>
+        </View>
 
           {activeGoals.length === 0 ? (
             <Text style={styles.emptyGoalsText}>
@@ -242,12 +235,12 @@ export default function GoalsScreen() {
         </View>
 
         {/* Completed Goals Section */}
-        {completedGoals.length > 0 && (
-          <View style={styles.completedGoalsContainer}>
-            <Text style={styles.completedGoalsTitle}>
-              Completed Goals
-            </Text>
-            {completedGoals.map(goal => (
+      {completedGoals.length > 0 && (
+        <View style={styles.completedGoalsContainer}>
+          <Text style={styles.completedGoalsTitle}>
+            Completed Goals
+          </Text>
+          {completedGoals.map(goal => (
               <View 
                 key={goal.id} 
                 style={styles.completedGoalItem}
@@ -262,10 +255,18 @@ export default function GoalsScreen() {
                   {goal.text}
                 </Text>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+
+      {/* Floating Add Button */}
+      <TouchableOpacity
+        style={styles.floatingAddButton}
+        onPress={() => handleOpenGoalModal()}
+      >
+        <Ionicons name="add" size={32} color="white" />
+      </TouchableOpacity>
 
       {/* Add Goal Modal */}
       <Modal
@@ -274,35 +275,58 @@ export default function GoalsScreen() {
         animationType="slide"
         onRequestClose={handleCloseGoalModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>
-              {goalModalVisible.editId ? 'Edit Goal' : 'New Goal'}
-            </Text>
-            <TextInput
-              value={newGoalText}
-              onChangeText={setNewGoalText}
-              placeholder="Enter your goal"
-              style={styles.modalInput}
-              multiline
-              autoFocus
-            />
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity 
-                onPress={handleCloseGoalModal}
-                style={styles.modalCancelButton}
-              >
-                <Text style={styles.modalCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={handleAddGoal}
-                style={styles.modalSaveButton}
-              >
-                <Text style={styles.modalSaveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={handleCloseGoalModal}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={e => e.stopPropagation()}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {goalModalVisible.editId ? 'Edit Goal' : 'New Goal'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleCloseGoalModal}
+                    style={styles.closeButton}
+                  >
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  value={newGoalText}
+                  onChangeText={setNewGoalText}
+                  placeholder="Describe your goal..."
+                  style={styles.modalInput}
+                  multiline
+                  autoFocus
+                  placeholderTextColor="#95a5a6"
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    onPress={handleCloseGoalModal}
+                    style={[styles.modalButton, styles.cancelButton]}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleAddGoal}
+                    style={[styles.modalButton, styles.saveButton]}
+                  >
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -366,22 +390,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#2c3e50',
   },
-  addGoalButton: {
-    backgroundColor: '#3498db', 
-    borderRadius: 20, 
-    paddingHorizontal: 12, 
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  addGoalButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    marginLeft: 5,
-  },
   emptyGoalsText: {
-    textAlign: 'center', 
-    padding: 16, 
+    textAlign: 'center',
+    padding: 16,
     color: '#7f8c8d',
     fontStyle: 'italic',
   },
@@ -435,70 +446,98 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   completedGoalText: {
-    flex: 1, 
+    flex: 1,
     textDecorationLine: 'line-through',
     color: '#7f8c8d',
     fontSize: 16,
   },
-  
+
+  floatingAddButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#3498db',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+
   // Modal Styles
   modalOverlay: {
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContainer: {
-    width: '80%', 
-    backgroundColor: 'white', 
-    borderRadius: 10, 
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: 320,
+    backgroundColor: 'white',
+    borderRadius: 10,
     padding: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   modalTitle: {
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    marginBottom: 15,
-    color: '#2c3e50',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#34495e',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: '#95a5a6',
   },
   modalInput: {
-    borderWidth: 1, 
-    borderColor: '#ddd', 
-    borderRadius: 5, 
-    padding: 10, 
-    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 20,
     minHeight: 100,
-    textAlignVertical: 'top',
   },
-  modalButtonContainer: {
-    flexDirection: 'row', 
+  modalButtons: {
+    flexDirection: 'row',
     justifyContent: 'flex-end',
   },
-  modalCancelButton: {
-    marginRight: 15, 
-    padding: 10,
-  },
-  modalCancelButtonText: {
-    color: '#3498db',
-    fontSize: 16,
-  },
-  modalSaveButton: {
-    backgroundColor: '#3498db', 
-    padding: 10, 
+  modalButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     borderRadius: 5,
+    marginLeft: 10,
   },
-  modalSaveButtonText: {
+  cancelButton: {
+    backgroundColor: '#ecf0f1',
+  },
+  cancelButtonText: {
+    color: '#34495e',
+  },
+  saveButton: {
+    backgroundColor: '#3498db',
+  },
+  saveButtonText: {
     color: 'white',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });
