@@ -188,22 +188,34 @@ export default function Dashboard() {
   // Helpers to color code screen time
   const getDailyColor = (minutes: number) => {
     const hours = minutes / 60;
-    if (hours > 5) return '#ef4444';
-    if (hours < 2) return '#10b981';
-    return '#f59e0b';
+    if (hours <= 2) {
+      return '#10b981';
+    }
+    if (hours < 5) {
+      return '#f59e0b';
+    }
+    return '#ef4444';
   };
 
   const getWeekColor = (minutes: number) => {
     const hours = minutes / 60;
-    if (hours > 35) return '#ef4444';
-    if (hours < 20) return '#10b981';
-    return '#f59e0b';
+    if (hours <= 20) {
+      return '#10b981';
+    }
+    if (hours <= 35) {
+      return '#f59e0b';
+    }
+    return '#ef4444';
   };
 
   // Screen time visualization using updated thresholds
   const getScreenTimeStatus = () => {
-    if (screenTimeInfo.todayScreenTime < 120) return { color: '#10b981', emoji: '🟢', status: 'Great!' };
-    if (screenTimeInfo.todayScreenTime < 300) return { color: '#f59e0b', emoji: '🟠', status: 'Moderate' };
+    if (screenTimeInfo.todayScreenTime <= 120) {
+      return { color: '#10b981', emoji: '🟢', status: 'Great!' };
+    }
+    if (screenTimeInfo.todayScreenTime < 300) {
+      return { color: '#f59e0b', emoji: '🟠', status: 'Moderate' };
+    }
     return { color: '#ef4444', emoji: '🔴', status: 'High' };
   };
 
