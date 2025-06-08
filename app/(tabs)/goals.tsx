@@ -1,5 +1,4 @@
-// app/(modals)/goals.tsx
-// app/(modals)/goals.tsx
+// app/(tabs)/goals.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -12,13 +11,13 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { isToday, isBefore, format } from 'date-fns';
 import { goalService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import DateHeader from '../../components/DateHeader';
 import { ModalConfig } from '@/models/types';
-
 
 // Types
 interface Goal {
@@ -188,7 +187,7 @@ export default function GoalsScreen() {
   const activeGoals = goals.filter(goal => !goal.completed);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Date Header with Progress */}
       <DateHeader 
         onDateChange={setSelectedDate}
@@ -208,9 +207,9 @@ export default function GoalsScreen() {
 
         {/* Active Goals Section */}
         <View style={styles.activeGoalsContainer}>
-          <View style={styles.activeGoalsHeader}>
-            <Text style={styles.activeGoalsTitle}>Active Goals</Text>
-          </View>
+        <View style={styles.activeGoalsHeader}>
+          <Text style={styles.activeGoalsTitle}>Active Goals</Text>
+        </View>
 
           {activeGoals.length === 0 ? (
             <Text style={styles.emptyGoalsText}>
@@ -236,12 +235,12 @@ export default function GoalsScreen() {
         </View>
 
         {/* Completed Goals Section */}
-        {completedGoals.length > 0 && (
-          <View style={styles.completedGoalsContainer}>
-            <Text style={styles.completedGoalsTitle}>
-              Completed Goals
-            </Text>
-            {completedGoals.map(goal => (
+      {completedGoals.length > 0 && (
+        <View style={styles.completedGoalsContainer}>
+          <Text style={styles.completedGoalsTitle}>
+            Completed Goals
+          </Text>
+          {completedGoals.map(goal => (
               <View 
                 key={goal.id} 
                 style={styles.completedGoalItem}
@@ -256,10 +255,10 @@ export default function GoalsScreen() {
                   {goal.text}
                 </Text>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+          ))}
+        </View>
+      )}
+    </ScrollView>
 
       {/* Floating Add Button */}
       <TouchableOpacity
@@ -329,10 +328,9 @@ export default function GoalsScreen() {
           </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
