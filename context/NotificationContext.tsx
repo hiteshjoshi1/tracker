@@ -44,8 +44,12 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
     // Set up notification response handler
     responseListener.current = NotificationService.setNotificationResponseHandler((habitId) => {
-      // Navigate to the habit screen when a notification is tapped
-      router.push('/habits');
+      // Navigate to the habit screen and pass the habit ID when a notification is tapped
+      if (habitId) {
+        router.push({ pathname: '/habits', params: { habitId } });
+      } else {
+        router.push('/habits');
+      }
     });
 
     // Clean up listeners when component unmounts

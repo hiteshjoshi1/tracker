@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import DateHeader from '../../components/DateHeader';
 import AddHabitModal from '../../components/AddHabitModal';
 import HabitDayIndicator from '../../components/HabitDayIndicator';
@@ -25,6 +26,9 @@ const HabitsScreen: React.FC = () => {
   const [isAddingHabit, setIsAddingHabit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const scrollViewRef = useRef<ScrollView>(null);
+  const { habitId } = useLocalSearchParams<{ habitId?: string }>();
+  const [highlightHabitId, setHighlightHabitId] = useState<string | null>(null);
   const { userInfo } = useAuth();
   const { scheduleDailyReminder, cancelReminder, rescheduleAllReminders } = useNotifications();
 
@@ -45,6 +49,24 @@ const HabitsScreen: React.FC = () => {
       return () => unsubscribe();
     }
   }, [userInfo]);
+
+  // Highlight a habit when coming from a notification
+  useEffect(() => {
+    if (habitId) {
+      const id = String(habitId);
+      setHighlightHabitId(id);
+
+      // Scroll to roughly the position of the habit card
+      const index = habits.findIndex(h => h.id === id);
+      if (index >= 0 && scrollViewRef.current) {
+        const approximateHeight = 230;
+        scrollViewRef.current.scrollTo({ y: index * approximateHeight, animated: true });
+      }
+
+      const timer = setTimeout(() => setHighlightHabitId(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [habitId, habits]);
 
   const loadHabits = async () => {
     if (!userInfo?.uid) return;
@@ -246,7 +268,7 @@ const HabitsScreen: React.FC = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView ref={scrollViewRef} style={styles.container}>
       <DateHeader onDateChange={handleDateChange} />
 
       <TouchableOpacity
@@ -282,7 +304,7 @@ const HabitsScreen: React.FC = () => {
             const isCompleted = isCompletedOnDate(habit, selectedDate);
 
             return (
-              <View key={habit.id} style={styles.habitCard}>
+              <View key={habit.id} style={[styles.habitCard, highlightHabitId === habit.id && styles.highlightHabit] }>
                 <View style={styles.habitHeader}>
                   <View style={styles.habitInfo}>
                     <Text style={styles.habitText}>{habit.name}</Text>
@@ -454,6 +476,10 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  highlightHabit: {
+    borderWidth: 2,
+    borderColor: '#3498db',
   },
   habitHeader: {
     flexDirection: 'row',
