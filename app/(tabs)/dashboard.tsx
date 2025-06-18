@@ -50,34 +50,38 @@ export default function Dashboard() {
   });
   const today = new Date();
 
+  // Helper to load stats for a given period
+  const fetchStatsForPeriod = useCallback(
+    async (period: ViewPeriod) => {
+      if (!userInfo?.uid) return;
+
+      setPeriodLoading(true);
+      try {
+        if (period === 'today') {
+          const stats = await analyticsService.getTodayStats(userInfo.uid);
+          setTodayStats(stats);
+        } else if (period === 'week') {
+          const stats = await analyticsService.getWeeklyStats(userInfo.uid);
+          setWeeklyStats(stats);
+        } else {
+          const stats = await analyticsService.getMonthlyStats(userInfo.uid);
+          setMonthlyStats(stats);
+        }
+      } catch (error) {
+        console.error(`Error loading ${period} stats:`, error);
+      } finally {
+        setPeriodLoading(false);
+      }
+    },
+    [userInfo?.uid]
+  );
+
   // Handle period change with loading
   const handlePeriodChange = async (newPeriod: ViewPeriod) => {
     if (newPeriod === viewPeriod) return;
-    
+
     setViewPeriod(newPeriod);
-    
-    // If switching to week/month and we don't have that data yet, load it
-    if (newPeriod === 'week' && !weeklyStats) {
-      setPeriodLoading(true);
-      try {
-        const stats = await analyticsService.getWeeklyStats(userInfo!.uid);
-        setWeeklyStats(stats);
-      } catch (error) {
-        console.error('Error loading weekly stats:', error);
-      } finally {
-        setPeriodLoading(false);
-      }
-    } else if (newPeriod === 'month' && !monthlyStats) {
-      setPeriodLoading(true);
-      try {
-        const stats = await analyticsService.getMonthlyStats(userInfo!.uid);
-        setMonthlyStats(stats);
-      } catch (error) {
-        console.error('Error loading monthly stats:', error);
-      } finally {
-        setPeriodLoading(false);
-      }
-    }
+    await fetchStatsForPeriod(newPeriod);
   };
 
   // Fast essential data loading
@@ -162,17 +166,16 @@ export default function Dashboard() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (!initialLoadDone && userInfo?.uid) {
-        loadEssentialData()
-          .then(() => {
-            setInitialLoadDone(true);
-            loadScreenTimeInfo(); // Initial load
-          });
-      } else if (initialLoadDone) {
-        // Smart update: refresh screen time when returning to dashboard
-        loadScreenTimeInfo();
+      if (!userInfo?.uid) return;
+
+      if (!initialLoadDone) {
+        loadEssentialData().then(() => setInitialLoadDone(true));
+      } else {
+        fetchStatsForPeriod(viewPeriod);
       }
-    }, [userInfo?.uid, initialLoadDone])
+
+      loadScreenTimeInfo();
+    }, [userInfo?.uid, viewPeriod, initialLoadDone])
   );
 
   // Get current stats based on view period
