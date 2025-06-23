@@ -48,3 +48,16 @@ https://deepwiki.com/hiteshjoshi1/tracker/1-overview
 - Install dependencies with `npm install`.
 - Run tests with `npm test`.
 - Lint with `npm run lint`.
+
+### Running Tests
+Execute the unit test suite with:
+
+```bash
+npm test
+```
+
+For watch mode during development use:
+
+```bash
+npm run test:watch
+```
