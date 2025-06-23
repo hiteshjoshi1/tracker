@@ -9,6 +9,13 @@ A React Native application with Firebase backend and Google Authentication.
 
 ## Getting Started
 
+First copy the example environment file and replace the placeholder values with your own credentials:
+
+```bash
+cp .env.example .env
+# then edit .env and add your Firebase/Google values
+```
+
 ### Build locally and test
 ```bash
 npx expo run:android
