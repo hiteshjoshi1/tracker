@@ -26,3 +26,7 @@ android/app/build/outputs/apk/release/app-release.apk
 Pair mac with Android and then use
 Bluetooth File Exchange
 app to transfer the apk to phone
+
+
+Some generated docs which are quite good
+https://deepwiki.com/hiteshjoshi1/tracker/1-overview
