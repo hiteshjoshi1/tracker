@@ -17,7 +17,6 @@ import { habitService } from '../../services/habitService';
 import { Habit } from '../../models/types';
 import { format, isToday, parseISO, isSameDay, addDays, subDays } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
-import { useNotifications } from '../../context/NotificationContext';
 
 const DAYS_OF_WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -30,7 +29,7 @@ const HabitsScreen: React.FC = () => {
   const { habitId } = useLocalSearchParams<{ habitId?: string }>();
   const [highlightHabitId, setHighlightHabitId] = useState<string | null>(null);
   const { userInfo } = useAuth();
-  const { scheduleDailyReminder, cancelReminder, rescheduleAllReminders } = useNotifications();
+
 
   useEffect(() => {
     if (userInfo?.uid) {
@@ -111,17 +110,9 @@ const HabitsScreen: React.FC = () => {
 
   const handleEditHabit = async (habitId: string, updates: Partial<Habit>) => {
     try {
+      // The HabitService handles scheduling and cancelling notifications when
+      // the reminder fields change, so we only need to update the habit here.
       await habitService.updateHabit(habitId, updates);
-
-      if ('reminderTime' in updates || 'reminderDays' in updates) {
-        const updatedHabit = habits.find(h => h.id === habitId);
-        if (updatedHabit) {
-          await cancelReminder(habitId);
-          if (updatedHabit.reminderTime) {
-            await scheduleDailyReminder(updatedHabit);
-          }
-        }
-      }
     } catch (error) {
       console.error('Error updating habit:', error);
       Alert.alert('Error', 'Failed to update habit. Please try again.');
@@ -130,7 +121,7 @@ const HabitsScreen: React.FC = () => {
 
   const handleDeleteHabit = async (habitId: string) => {
     try {
-      await cancelReminder(habitId);
+      // Deleting the habit will also cancel any scheduled notifications
       await habitService.deleteHabit(habitId);
     } catch (error) {
       console.error('Error deleting habit:', error);
