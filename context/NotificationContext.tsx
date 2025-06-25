@@ -46,9 +46,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     responseListener.current = NotificationService.setNotificationResponseHandler((habitId) => {
       // Navigate to the habit screen and pass the habit ID when a notification is tapped
       if (habitId) {
-        router.push({ pathname: '/habits', params: { habitId } });
+        router.push({ pathname: '/(tabs)/habits', params: { habitId } });
       } else {
-        router.push('/habits');
+        router.push('/(tabs)/habits');
       }
     });
 
