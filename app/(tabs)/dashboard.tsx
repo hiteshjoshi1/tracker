@@ -188,10 +188,37 @@ export default function Dashboard() {
 
   const currentStats = getCurrentStats();
 
-  // Screen time visualization
+  // Helpers to color code screen time
+  const getDailyColor = (minutes: number) => {
+    const hours = minutes / 60;
+    if (hours <= 2) {
+      return '#10b981';
+    }
+    if (hours < 5) {
+      return '#f59e0b';
+    }
+    return '#ef4444';
+  };
+
+  const getWeekColor = (minutes: number) => {
+    const hours = minutes / 60;
+    if (hours <= 20) {
+      return '#10b981';
+    }
+    if (hours <= 35) {
+      return '#f59e0b';
+    }
+    return '#ef4444';
+  };
+
+  // Screen time visualization using updated thresholds
   const getScreenTimeStatus = () => {
-    if (screenTimeInfo.todayScreenTime < 120) return { color: '#10b981', emoji: '🟢', status: 'Great!' };
-    if (screenTimeInfo.todayScreenTime < 240) return { color: '#f59e0b', emoji: '🟡', status: 'Moderate' };
+    if (screenTimeInfo.todayScreenTime <= 120) {
+      return { color: '#10b981', emoji: '🟢', status: 'Great!' };
+    }
+    if (screenTimeInfo.todayScreenTime < 300) {
+      return { color: '#f59e0b', emoji: '🟠', status: 'Moderate' };
+    }
     return { color: '#ef4444', emoji: '🔴', status: 'High' };
   };
 
@@ -356,17 +383,17 @@ export default function Dashboard() {
                       <Text style={styles.chartDay}>Today</Text>
                     </View>
                     <View style={styles.chartBarContainer}>
-                      <View 
+                      <View
                         style={[
-                          styles.chartBarFill, 
-                          { 
+                          styles.chartBarFill,
+                          {
                             height: Math.min((screenTimeInfo.todayScreenTime / 480) * 40, 40),
-                            backgroundColor: screenTimeStatus.color 
+                            backgroundColor: getDailyColor(screenTimeInfo.todayScreenTime)
                           }
-                        ]} 
+                        ]}
                       />
                     </View>
-                    <Text style={styles.chartValue}>
+                    <Text style={[styles.chartValue, { color: getDailyColor(screenTimeInfo.todayScreenTime) }]}>
                       {Math.floor(screenTimeInfo.todayScreenTime / 60)}h
                     </Text>
                   </View>
@@ -376,17 +403,17 @@ export default function Dashboard() {
                       <Text style={styles.chartDay}>Yesterday</Text>
                     </View>
                     <View style={styles.chartBarContainer}>
-                      <View 
+                      <View
                         style={[
-                          styles.chartBarFill, 
-                          { 
+                          styles.chartBarFill,
+                          {
                             height: Math.min((screenTimeInfo.yesterdayScreenTime / 480) * 40, 40),
-                            backgroundColor: '#e5e7eb' 
+                            backgroundColor: getDailyColor(screenTimeInfo.yesterdayScreenTime)
                           }
-                        ]} 
+                        ]}
                       />
                     </View>
-                    <Text style={styles.chartValue}>
+                    <Text style={[styles.chartValue, { color: getDailyColor(screenTimeInfo.yesterdayScreenTime) }]}>
                       {Math.floor(screenTimeInfo.yesterdayScreenTime / 60)}h
                     </Text>
                   </View>
@@ -396,17 +423,17 @@ export default function Dashboard() {
                       <Text style={styles.chartDay}>Week Avg</Text>
                     </View>
                     <View style={styles.chartBarContainer}>
-                      <View 
+                      <View
                         style={[
-                          styles.chartBarFill, 
-                          { 
+                          styles.chartBarFill,
+                          {
                             height: Math.min(((screenTimeInfo.weekScreenTime / 7) / 480) * 40, 40),
-                            backgroundColor: '#a1a1aa' 
+                            backgroundColor: getWeekColor(screenTimeInfo.weekScreenTime)
                           }
-                        ]} 
+                        ]}
                       />
                     </View>
-                    <Text style={styles.chartValue}>
+                    <Text style={[styles.chartValue, { color: getWeekColor(screenTimeInfo.weekScreenTime) }]}>
                       {Math.floor((screenTimeInfo.weekScreenTime / 7) / 60)}h
                     </Text>
                   </View>
