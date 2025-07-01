@@ -110,6 +110,20 @@ export default function GoalsScreen() {
     }
   };
 
+  // Move unfinished goal to today
+  const handleMoveGoal = async (goalId: string) => {
+    if (!userInfo?.uid) return;
+
+    try {
+      const today = new Date();
+      await goalService.moveToDate(goalId, today);
+
+      setGoals(prevGoals => prevGoals.filter(goal => goal.id !== goalId));
+    } catch (error) {
+      console.error('Error moving goal:', error);
+    }
+  };
+
   // Add or edit goal
   const handleAddGoal = async () => {
     if (!userInfo?.uid || !newGoalText.trim()) return;
@@ -230,6 +244,11 @@ export default function GoalsScreen() {
                 <TouchableOpacity onPress={() => handleOpenGoalModal(goal.id)}>
                   <Ionicons name="create-outline" size={24} color="#3498db" />
                 </TouchableOpacity>
+                {goal.isExpired && (
+                  <TouchableOpacity onPress={() => handleMoveGoal(goal.id)} style={styles.moveButton}>
+                    <Ionicons name="arrow-redo-circle-outline" size={24} color="#e67e22" />
+                  </TouchableOpacity>
+                )}
               </View>
             ))
           )}
@@ -417,6 +436,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#2c3e50',
+  },
+  moveButton: {
+    marginLeft: 8,
   },
   completedGoalsContainer: {
     backgroundColor: 'white', 
