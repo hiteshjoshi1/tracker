@@ -15,7 +15,7 @@ import AddHabitModal from '../../components/AddHabitModal';
 import HabitDayIndicator from '../../components/HabitDayIndicator';
 import { habitService } from '../../services/habitService';
 import { Habit } from '../../models/types';
-import { format, isToday, parseISO, isSameDay, addDays, subDays } from 'date-fns';
+import { format, isToday, parseISO, isSameDay, addDays, subDays, differenceInDays } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -149,9 +149,28 @@ const HabitsScreen: React.FC = () => {
   };
 
   const getLastTrackedTime = (habit: Habit) => {
-    if (!habit.lastCompleted) return '';
-    const now = new Date();
-    const last = new Date(habit.lastCompleted);
+    let last: Date | null = null;
+
+    if (habit.completionHistory) {
+      const completedDates = Object.keys(habit.completionHistory)
+        .filter(dateStr => habit.completionHistory![dateStr] === 'completed')
+        .map(dateStr => parseISO(dateStr));
+
+      if (completedDates.length > 0) {
+        last = completedDates.reduce((latest, current) =>
+          current > latest ? current : latest
+        );
+      }
+    }
+
+    if (habit.lastCompleted) {
+      const lastCompletedDate = new Date(habit.lastCompleted);
+      if (!last || lastCompletedDate > last) {
+        last = lastCompletedDate;
+      }
+    }
+
+    if (!last) return '';
 
     if (isToday(last)) {
       const hours = last.getHours().toString().padStart(2, '0');
@@ -165,7 +184,7 @@ const HabitsScreen: React.FC = () => {
       return `Tracked at ${hours}:${minutes}`;
     }
 
-    const days = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+    const days = differenceInDays(new Date(), last);
     return `${days} day${days !== 1 ? 's' : ''} ago`;
   };
 
