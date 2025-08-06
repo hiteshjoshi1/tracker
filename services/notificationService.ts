@@ -222,15 +222,15 @@ export class NotificationService {
   }
 
   // Set up notification response handling
-  static setNotificationResponseHandler(callback: (habitId: string) => void) {
+  static setNotificationResponseHandler(callback: (habitId?: string) => void) {
     // This handles when a user taps on a notification
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      const habitId = response.notification.request.content.data?.habitId;
-      if (habitId) {
-        callback(habitId);
-      }
+      const habitId = response.notification.request.content.data?.habitId as
+        | string
+        | undefined;
+      callback(habitId);
     });
-    
+
     return subscription;
   }
 }

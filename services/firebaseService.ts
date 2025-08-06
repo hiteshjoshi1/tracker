@@ -171,6 +171,11 @@ export class GoalService extends FirebaseService<Goal> {
   async toggleCompletion(goalId: string, completed: boolean): Promise<void> {
     await this.updateItem(goalId, { completed });
   }
+
+  // Move goal to a different date (e.g., from past to today)
+  async moveToDate(goalId: string, date: Date): Promise<void> {
+    await this.updateItem(goalId, { date: Timestamp.fromDate(date) } as Partial<Goal>);
+  }
   
   // Get expired incomplete goals (for highlighting in red)
   async getExpiredGoals(userId: string, currentDate: Date): Promise<Goal[]> {

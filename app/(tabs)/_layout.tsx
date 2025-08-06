@@ -42,6 +42,7 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: true,
+          headerTitle: '',
           tabBarActiveTintColor: '#3498db',
           tabBarInactiveTintColor: '#95a5a6',
           // Add logout button to all screen headers
@@ -51,7 +52,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="dashboard"
           options={{
-            title: "Dashboard",
+            tabBarLabel: "Dashboard",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="home-outline" size={size} color={color} />
             ),
@@ -61,7 +62,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="habits"
           options={{
-            title: "Habits",
+            tabBarLabel: "Habits",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="list-outline" size={size} color={color} />
             ),
@@ -71,7 +72,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="goals"
           options={{
-            title: "Goals",
+            tabBarLabel: "Goals",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="checkmark-circle-outline" size={size} color={color} />
             ),
@@ -83,7 +84,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="journal"
           options={{
-            title: "Journal",
+            tabBarLabel: "Journal",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="book-outline" size={size} color={color} />
             ),
@@ -93,7 +94,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="quotes"
           options={{
-            title: "Quotes",
+            tabBarLabel: "Quotes",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
             ),
