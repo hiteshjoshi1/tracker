@@ -1,11 +1,8 @@
 
 // services/quoteService.ts
-import { db } from '../config/firebase';
 import { 
-  collection, 
   where,
   orderBy,
-  query,
   QueryConstraint
 } from 'firebase/firestore';
 import { FirebaseService } from './firebaseService';
@@ -15,12 +12,20 @@ export class QuoteService extends FirebaseService<Quote> {
   constructor() {
     super('quotes');
   }
+
+  // Keep quotes ordered at query time: starred first, then newest.
+  async getUserItems(userId: string, additionalQueries: QueryConstraint[] = []): Promise<Quote[]> {
+    return super.getUserItems(userId, [
+      ...additionalQueries,
+      orderBy("favorite", "desc"),
+      orderBy("createdAt", "desc")
+    ]);
+  }
   
   // Get user's favorite quotes
   async getFavoriteQuotes(userId: string): Promise<Quote[]> {
     const additionalQueries: QueryConstraint[] = [
-      where("favorite", "==", true),
-      orderBy("createdAt", "desc")
+      where("favorite", "==", true)
     ];
     
     return this.getUserItems(userId, additionalQueries);
