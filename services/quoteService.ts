@@ -66,6 +66,26 @@ export class QuoteService extends FirebaseService<Quote> {
       quote.categories.some(cat => cat.toLowerCase() === category.toLowerCase())
     );
   }
+
+  // Get all unique categories the user has used before.
+  async getUserCategories(userId: string): Promise<string[]> {
+    const quotes = await this.getUserItems(userId);
+    const categoryMap = new Map<string, string>();
+
+    quotes.forEach((quote) => {
+      quote.categories.forEach((cat) => {
+        const trimmed = cat.trim();
+        if (!trimmed) return;
+
+        const key = trimmed.toLowerCase();
+        if (!categoryMap.has(key)) {
+          categoryMap.set(key, trimmed);
+        }
+      });
+    });
+
+    return Array.from(categoryMap.values()).sort((a, b) => a.localeCompare(b));
+  }
 }
 
 // Service instance

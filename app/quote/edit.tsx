@@ -1,5 +1,5 @@
 // app/quote/edit.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ export default function EditQuoteScreen() {
   const [author, setAuthor] = useState('');
   const [category, setCategory] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
+  const [existingCategories, setExistingCategories] = useState<string[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -74,18 +75,54 @@ export default function EditQuoteScreen() {
     loadQuote();
   }, [quoteId, userInfo?.uid]);
 
-  // Add a category
-  const addCategory = () => {
-    if (category.trim() && !categories.includes(category.trim())) {
-      setCategories([...categories, category.trim()]);
+  useEffect(() => {
+    const loadExistingCategories = async () => {
+      if (!userInfo?.uid) return;
+
+      try {
+        const userCategories = await quoteService.getUserCategories(userInfo.uid);
+        setExistingCategories(userCategories);
+      } catch (error) {
+        console.error('Error loading category suggestions:', error);
+      }
+    };
+
+    loadExistingCategories();
+  }, [userInfo?.uid]);
+
+  // Add a category from typed text or suggestion.
+  const addCategoryFromValue = (value: string) => {
+    const trimmed = value.trim();
+    const normalized = trimmed.toLowerCase();
+    const alreadyAdded = categories.some((cat) => cat.toLowerCase() === normalized);
+
+    if (trimmed && !alreadyAdded) {
+      setCategories([...categories, trimmed]);
       setCategory('');
     }
+  };
+
+  // Add a category
+  const addCategory = () => {
+    addCategoryFromValue(category);
   };
 
   // Remove a category
   const removeCategory = (index: number) => {
     setCategories(categories.filter((_, i) => i !== index));
   };
+
+  const categorySuggestions = useMemo(() => {
+    const search = category.trim().toLowerCase();
+    if (search.length < 2) return [];
+
+    return existingCategories
+      .filter((existing) => existing.toLowerCase().includes(search))
+      .filter(
+        (existing) => !categories.some((cat) => cat.toLowerCase() === existing.toLowerCase())
+      )
+      .slice(0, 6);
+  }, [category, existingCategories, categories]);
 
   // Toggle favorite status
   const toggleFavorite = () => {
@@ -204,6 +241,20 @@ export default function EditQuoteScreen() {
                 <Ionicons name="add" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
+
+            {categorySuggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                {categorySuggestions.map((suggestion) => (
+                  <TouchableOpacity
+                    key={suggestion}
+                    style={styles.suggestionChip}
+                    onPress={() => addCategoryFromValue(suggestion)}
+                  >
+                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Category chips */}
             <View style={styles.categoriesContainer}>
@@ -337,6 +388,24 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  suggestionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  suggestionChip: {
+    backgroundColor: '#ecf4ff',
+    borderColor: '#3498db',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    margin: 4,
+  },
+  suggestionText: {
+    color: '#2c6aa0',
+    fontSize: 14,
   },
   categoryChip: {
     flexDirection: 'row',
