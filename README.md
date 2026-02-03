@@ -6,8 +6,10 @@ A React Native application with Firebase backend and Google Authentication.
 1. react-native
 2. Firebase
 3. Google Auth
+4. Requires Node 22 or higher
 
 ## Getting Started
+```nvm use lts/jod```
 
 First copy the example environment file and replace the placeholder values with your own credentials:
 
