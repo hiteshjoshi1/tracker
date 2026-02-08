@@ -13,6 +13,7 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  writeBatch,
   QueryConstraint,
 } from 'firebase/firestore';
 import { BaseItem, Goal, GoodDeed, Reflection, CollectionType } from '../models/types';
@@ -175,6 +176,43 @@ export class GoalService extends FirebaseService<Goal> {
   // Move goal to a different date (e.g., from past to today)
   async moveToDate(goalId: string, date: Date): Promise<void> {
     await this.updateItem(goalId, { date: Timestamp.fromDate(date) } as Partial<Goal>);
+  }
+
+  // Move all incomplete past goals to the target date
+  async rolloverUncompletedToDate(userId: string, targetDate: Date): Promise<number> {
+    const targetStart = Timestamp.fromDate(startOfDay(targetDate));
+
+    const q = query(
+      this.collectionRef,
+      where("userId", "==", userId),
+      where("date", "<", targetStart)
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return 0;
+
+    const batch = writeBatch(db);
+    const targetTimestamp = Timestamp.fromDate(startOfDay(targetDate));
+
+    let movedCount = 0;
+    querySnapshot.docs.forEach(docSnap => {
+      const data = docSnap.data() as Partial<Goal>;
+      const isCompleted =
+        data.completed === true ||
+        data.completed === 1 ||
+        data.completed === "true";
+
+      if (isCompleted) return;
+
+      batch.update(docSnap.ref, {
+        date: targetTimestamp,
+        updatedAt: serverTimestamp()
+      });
+      movedCount += 1;
+    });
+
+    await batch.commit();
+    return movedCount;
   }
   
   // Get expired incomplete goals (for highlighting in red)

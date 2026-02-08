@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { isToday, isBefore, format } from 'date-fns';
+import { isToday, isBefore, format, startOfDay } from 'date-fns';
 import { goalService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import DateHeader from '../../components/DateHeader';
@@ -50,6 +50,7 @@ export default function GoalsScreen() {
   
   // Track if component is mounted
   const isMounted = useRef(true);
+  const lastRolloverKey = useRef<string | null>(null);
 
   // Component lifecycle
   useEffect(() => {
@@ -72,6 +73,12 @@ export default function GoalsScreen() {
     
     try {
       setLoading(true);
+      const today = new Date();
+      const todayKey = format(today, 'yyyy-MM-dd');
+      if (lastRolloverKey.current !== todayKey) {
+        lastRolloverKey.current = todayKey;
+        await goalService.rolloverUncompletedToDate(userInfo.uid, today);
+      }
       const goalsForDate = await goalService.getItemsByDate(userInfo.uid, date);
       
       // Mark expired goals for past dates
@@ -129,6 +136,11 @@ export default function GoalsScreen() {
     if (!userInfo?.uid || !newGoalText.trim()) return;
 
     try {
+      const todayStart = startOfDay(new Date());
+      const selectedStart = startOfDay(selectedDate);
+      const isPastSelected = isBefore(selectedStart, todayStart);
+      const targetDate = isPastSelected ? todayStart : selectedDate;
+
       if (goalModalVisible.editId) {
         // Editing existing goal
         await goalService.updateItem(goalModalVisible.editId, {
@@ -147,14 +159,16 @@ export default function GoalsScreen() {
         const newGoalId = await goalService.addItem(userInfo.uid, {
           text: newGoalText.trim(),
           completed: false
-        }, selectedDate);
-        
-        setGoals(prevGoals => [...prevGoals, {
-          id: newGoalId,
-          text: newGoalText.trim(),
-          completed: false,
-          date: selectedDate
-        }]);
+        }, targetDate);
+
+        if (!isPastSelected) {
+          setGoals(prevGoals => [...prevGoals, {
+            id: newGoalId,
+            text: newGoalText.trim(),
+            completed: false,
+            date: targetDate
+          }]);
+        }
       }
       
       // Close modal and reset
