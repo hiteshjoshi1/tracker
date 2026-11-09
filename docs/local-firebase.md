@@ -45,6 +45,14 @@ Build a debug development client with these same exported variables using
 `npx expo run:android`. Do not run destructive `expo prebuild --clean`: the committed
 native project contains the custom ScreenTime module.
 
+Emulator mode omits the production `googleServicesFile` paths from Expo config,
+so missing personal Google service files do not block Metro asset resolution.
+Android's committed `android/app/src/debug/google-services.json` contains only
+synthetic `demo-tracker` identifiers and is selected for the **debug variant only**.
+It enables a clean local debug build without personal credentials. Release builds
+continue using the owner's ignored real Google service configuration; the debug
+fixture is never a replacement for release configuration.
+
 For the Android emulator, change the two client endpoints to
 `10.0.2.2:9099` and `10.0.2.2:8080` before starting/building the app. The server still
 binds only to your computer's loopback address. For an iOS simulator or browser,

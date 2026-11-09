@@ -9,7 +9,7 @@ const firebaseExtra = {
   firebaseFirestoreEmulatorHost: process.env.EXPO_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST,
 };
 // Expo config evaluation must reject invalid local choices before packaging them.
-resolveEnvironment(firebaseExtra);
+const firebaseEnvironment = resolveEnvironment(firebaseExtra);
 
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
@@ -32,7 +32,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.hiteshjoshi.tracker",
-    googleServicesFile: "./GoogleService-Info.plist",
+    ...(firebaseEnvironment.mode === 'emulator' ? {} : {
+      googleServicesFile: "./GoogleService-Info.plist",
+    }),
   },
   android: {
     adaptiveIcon: {
@@ -40,7 +42,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: "#ffffff"
     },
     package: "com.hiteshjoshi.tracker",
-    googleServicesFile: "./google-services.json",
+    ...(firebaseEnvironment.mode === 'emulator' ? {} : {
+      googleServicesFile: "./google-services.json",
+    }),
     versionCode: 1,
     intentFilters: [
       {
