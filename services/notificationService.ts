@@ -1,3 +1,4 @@
+import { isEmulator } from '../config/firebase';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -7,7 +8,7 @@ import { format, parse, addDays, setHours, setMinutes, setSeconds } from 'date-f
 import { Habit, PUSH_TOKEN_KEY, NOTIFICATION_IDS_KEY } from '../models/types';
 
 // Configure notification behavior
-Notifications.setNotificationHandler({
+if (!isEmulator) Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
@@ -18,6 +19,7 @@ Notifications.setNotificationHandler({
 export class NotificationService {
   // Register for push notifications
   static async registerForPushNotificationsAsync() {
+    if (isEmulator) return null;
     let token;
     
     // Check if the device is a physical device (not an emulator)
@@ -66,6 +68,7 @@ export class NotificationService {
 
   // Schedule a notification for a habit
   static async scheduleHabitNotification(habit: Habit) {
+    if (isEmulator) return null;
     // Only schedule if the habit has a reminder time
     if (!habit.reminderTime) {
       console.log('No reminder time set for habit:', habit.name);
@@ -157,6 +160,7 @@ export class NotificationService {
 
   // Cancel all notifications for a habit
   static async cancelHabitNotifications(habitId: string) {
+    if (isEmulator) return;
     try {
       // Get all notification IDs for this habit
       const notificationIdsJSON = await AsyncStorage.getItem(NOTIFICATION_IDS_KEY);
@@ -186,6 +190,7 @@ export class NotificationService {
 
   // Save notification ID(s) for a habit
   static async saveNotificationId(habitId: string, notificationId: string | string[]) {
+    if (isEmulator) return;
     try {
       // Get all existing notification IDs
       const notificationIdsJSON = await AsyncStorage.getItem(NOTIFICATION_IDS_KEY);
@@ -203,6 +208,7 @@ export class NotificationService {
 
   // Reschedule notifications for all habits
   static async rescheduleAllHabitNotifications(habits: Habit[]) {
+    if (isEmulator) return;
     try {
       // Cancel all existing notifications first
       await Notifications.cancelAllScheduledNotificationsAsync();
@@ -223,6 +229,7 @@ export class NotificationService {
 
   // Set up notification response handling
   static setNotificationResponseHandler(callback: (habitId?: string) => void) {
+    if (isEmulator) return { remove: () => {} };
     // This handles when a user taps on a notification
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const habitId = response.notification.request.content.data?.habitId as

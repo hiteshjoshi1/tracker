@@ -11,7 +11,11 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "test:rules": "npm --prefix tools/firebase run test:rules",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "emulators": "npm --prefix tools/firebase run emulators",
+    "emulators:seed": "npm --prefix tools/firebase run seed",
+    "emulators:reset": "npm --prefix tools/firebase run reset",
+    "test:local": "npm --prefix tools/firebase run test:local"
   },
   "jest": {
     "preset": "jest-expo"

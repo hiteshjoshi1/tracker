@@ -43,6 +43,9 @@ GoogleService-Info.plist
 
 android/app/google-services.json
 
+# Synthetic demo-only configuration for the debug variant; release config stays local.
+!android/app/src/debug/google-services.json
+
 # Local Firebase tools and emulator output
 .firebase/
 *-debug.log

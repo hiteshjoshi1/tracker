@@ -88,3 +88,8 @@ Firebase documentation:
 [Rules tests](https://firebase.google.com/docs/rules/unit-tests),
 [query authorization](https://firebase.google.com/docs/firestore/security/rules-query),
 [emulator limitations](https://firebase.google.com/docs/emulator-suite/connect_firestore).
+
+## Local app development
+
+See [local Firebase development](local-firebase.md) for emulator start/seed/reset,
+synthetic login, safe device routing and noninteractive login/CRUD smoke checks.
