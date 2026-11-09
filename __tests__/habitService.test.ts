@@ -2,6 +2,16 @@ import { HabitService } from '../services/habitService';
 import { NotificationService } from '../services/notificationService';
 import { Habit } from '../models/types';
 
+// These tests exercise reminder orchestration, not Firebase initialization or
+// persistence. Keep both boundaries local to this suite; emulator tests use the
+// real SDK separately in tools/firebase/test.
+jest.mock('../config/firebase', () => ({ db: {} }));
+jest.mock('firebase/firestore', () => ({
+  // FirebaseService constructs collection references on import. No SDK reads or
+  // writes are available here: each test must explicitly stub its persistence.
+  collection: jest.fn(() => ({}))
+}));
+
 jest.mock('../services/notificationService', () => {
   return {
     NotificationService: {
@@ -34,6 +44,7 @@ describe('HabitService.updateHabit', () => {
   const habitService = new HabitService();
 
   beforeEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
   });
 
