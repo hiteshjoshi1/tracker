@@ -42,3 +42,8 @@ GoogleService-Info.plist
 GoogleService-Info.plist
 
 android/app/google-services.json
+
+# Local Firebase tools and emulator output
+.firebase/
+*-debug.log
+*-debug.log.*

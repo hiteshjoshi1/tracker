@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isTrackerCollection(name) {
+      return name in ['goals', 'goodDeeds', 'reflections', 'habits', 'quotes'];
+    }
+
+    function ownsExistingRecord() {
+      return request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // All five collections are private per-user records, including quotes.
+    // Client filters constrain queries; these rules enforce access independently.
+    match /{collectionName}/{recordId} {
+      allow get, list, delete: if isTrackerCollection(collectionName)
+        && ownsExistingRecord();
+      allow create: if isTrackerCollection(collectionName)
+        && request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isTrackerCollection(collectionName)
+        && ownsExistingRecord()
+        && request.resource.data.userId == resource.data.userId;
+    }
+
+    // Unknown collections and all subcollections are intentionally inaccessible.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
