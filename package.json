@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "test": "jest",
     "test:watch": "jest --watchAll",
+    "test:rules": "npm --prefix tools/firebase run test:rules",
     "lint": "expo lint"
   },
   "jest": {
