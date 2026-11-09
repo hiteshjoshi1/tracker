@@ -2,6 +2,9 @@
 
 A React Native application with Firebase backend and Google Authentication.
 
+Engineering work is tracked in the [Tracker backlog](https://github.com/users/hiteshjoshi1/projects/3).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for issue, branch, PR and verification requirements.
+
 ## Tech stack
 1. react-native
 2. Firebase
