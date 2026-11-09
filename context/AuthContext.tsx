@@ -9,13 +9,14 @@ import {
   signInWithCredential, 
   onAuthStateChanged,
   User,
+  signInWithEmailAndPassword,
   signOut as firebaseSignOut
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, isEmulator, userStorageKey } from '../config/firebase';
 import { Platform } from 'react-native';
 
 // Register for redirect callback
-WebBrowser.maybeCompleteAuthSession();
+
 
 // Define types for our context
 type UserInfo = User | null | undefined;
@@ -24,7 +25,8 @@ interface AuthContextType {
   userInfo: UserInfo;
   isLoading: boolean;
   loadingMessage: string;
-  signInWithGoogle: () => Promise<void>;
+  signIn: () => Promise<void>;
+  signInLabel: string;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -34,7 +36,8 @@ const AuthContext = createContext<AuthContextType>({
   userInfo: null,
   isLoading: false,
   loadingMessage: '',
-  signInWithGoogle: async () => {},
+  signIn: async () => {},
+  signInLabel: 'Sign in with Google',
   signOut: async () => {},
   isAuthenticated: false,
 });
@@ -44,7 +47,8 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+const ProductionAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  useEffect(() => { WebBrowser.maybeCompleteAuthSession(); }, []);
   const [userInfo, setUserInfo] = useState<UserInfo>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start as true to check for existing session
   const [loadingMessage, setLoadingMessage] = useState<string>('Checking login status...');
@@ -67,7 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const checkExistingSession = async () => {
       try {
         // Check if there's stored user data
-        const userJSON = await AsyncStorage.getItem('@user');
+        const userJSON = await AsyncStorage.getItem(userStorageKey);
         if (userJSON) {
           const userData = JSON.parse(userJSON);
           setUserInfo(userData);
@@ -90,7 +94,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('User is signed out');
         setUserInfo(null);
         // Clear stored user data
-        AsyncStorage.removeItem('@user');
+        AsyncStorage.removeItem(userStorageKey);
       }
       // Update loading state
       setIsLoading(false);
@@ -124,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         displayName: user.displayName,
         photoURL: user.photoURL
       };
-      await AsyncStorage.setItem('@user', JSON.stringify(userData));
+      await AsyncStorage.setItem(userStorageKey, JSON.stringify(userData));
     } catch (error) {
       console.error('Error saving user to storage:', error);
     }
@@ -199,7 +203,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoadingMessage('Signing out...');
     try {
       await firebaseSignOut(auth);
-      await AsyncStorage.removeItem('@user');
+      await AsyncStorage.removeItem(userStorageKey);
       setUserInfo(null);
       // Navigate to login screen
       router.replace('/login');
@@ -217,7 +221,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         userInfo,
         isLoading,
         loadingMessage,
-        signInWithGoogle,
+        signIn: signInWithGoogle,
+        signInLabel: 'Sign in with Google',
         signOut,
         isAuthenticated: !!userInfo,
       }}
@@ -229,3 +234,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 // Custom hook to use the auth context
 export const useAuth = () => useContext(AuthContext);
+// Separate component: emulator login never instantiates Google's OAuth hook.
+const LocalAuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [userInfo, setUserInfo] = useState<UserInfo>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => onAuthStateChanged(auth, (user) => {
+    setUserInfo(user);
+    setIsLoading(false);
+    if (user) {
+      AsyncStorage.setItem(userStorageKey, JSON.stringify({ uid: user.uid, email: user.email }));
+    } else {
+      AsyncStorage.removeItem(userStorageKey);
+    }
+  }), []);
+  const signIn = async () => {
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, 'alice@tracker.test', 'Tracker-local-only-123!');
+      router.replace('/dashboard');
+    } catch {
+      Alert.alert('Local sign in failed', 'Start and seed the local Firebase emulators, then retry. Production login is never used as a fallback.');
+    } finally { setIsLoading(false); }
+  };
+  const signOut = async () => {
+    await firebaseSignOut(auth);
+    await AsyncStorage.removeItem(userStorageKey);
+    router.replace('/login');
+  };
+  return (
+    <AuthContext.Provider value={{
+      userInfo,
+      isLoading,
+      loadingMessage: 'Connecting to LOCAL test data...',
+      signIn,
+      signInLabel: 'LOCAL TEST: sign in as Alice',
+      signOut,
+      isAuthenticated: !!userInfo,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+export const AuthProvider: React.FC<AuthProviderProps> = (props) => isEmulator
+  ? <LocalAuthProvider {...props} /> : <ProductionAuthProvider {...props} />;

@@ -6,7 +6,11 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "test:rules": "firebase emulators:exec --config ../../firebase.json --project demo-tracker --only firestore \"node --test --test-concurrency=1 test/rules.test.cjs\""
+    "test:rules": "firebase emulators:exec --config ../../firebase.json --project demo-tracker --only firestore \"node --test --test-concurrency=1 test/rules.test.cjs\"",
+    "emulators": "firebase emulators:start --config ../../firebase.json --project demo-tracker --only auth,firestore",
+    "seed": "node lib/local.cjs seed",
+    "reset": "node lib/local.cjs reset",
+    "test:local": "firebase emulators:exec --config ../../firebase.json --project demo-tracker --only auth,firestore \"node --test --test-concurrency=1 test/environment.test.cjs test/local.test.cjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "4.0.1",

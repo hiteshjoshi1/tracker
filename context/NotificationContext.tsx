@@ -1,3 +1,4 @@
+import { isEmulator } from '../config/firebase';
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { NotificationService } from '../services/notificationService';
@@ -27,6 +28,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   // Initialize notifications when the app starts
   useEffect(() => {
+    if (isEmulator) return;
     // Register for push notifications
     NotificationService.registerForPushNotificationsAsync()
       .then(token => {
@@ -78,6 +80,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   // Set up user-specific notifications when the user changes
   useEffect(() => {
+    if (isEmulator) return;
     if (userInfo?.uid) {
       // Load the user's habits and schedule notifications for them
       habitService.getUserHabits(userInfo.uid)

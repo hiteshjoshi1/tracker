@@ -66,3 +66,9 @@ For watch mode during development use:
 ```bash
 npm run test:watch
 ```
+
+## Local Firebase development
+
+Use [the emulator guide](docs/local-firebase.md) for synthetic local login/data,
+start/seed/reset commands and safe Android device routing. Your ordinary
+`./gradlew assembleRelease` + Bluetooth installation remains the personal release path.

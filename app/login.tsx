@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 
 const LoginScreen = () => {
   // Use the authentication context instead of local state
-  const { isLoading, loadingMessage, signInWithGoogle, isAuthenticated } = useAuth();
+  const { isLoading, loadingMessage, signIn, signInLabel, isAuthenticated } = useAuth();
 
   // Redirect to tabs if already authenticated
   React.useEffect(() => {
@@ -48,9 +48,9 @@ const LoginScreen = () => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={styles.googleButton}
-            onPress={signInWithGoogle}
+            onPress={signIn}
           >
-            <Text style={styles.buttonText}>Sign in with Google</Text>
+            <Text style={styles.buttonText}>{signInLabel}</Text>
           </TouchableOpacity>
         </View>
       )}
