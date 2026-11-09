@@ -69,7 +69,7 @@ adb reverse tcp:8081 tcp:8081
 ```
 
 The last port is the development Metro server. Use `127.0.0.1` endpoints in the app;
-no LAN binding, public tunnel or published APK is involved. On disconnect, local
+Firebase servers remain loopback-only; no public tunnel or published APK is involved. On disconnect, local
 requests fail: there is no production fallback. Remove forwards with
 `adb reverse --remove tcp:9099` (and the corresponding 8080/8081 commands).
 
