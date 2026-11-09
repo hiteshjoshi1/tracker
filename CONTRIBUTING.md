@@ -4,6 +4,16 @@ The [Tracker backlog](https://github.com/users/hiteshjoshi1/projects/3) is the
 single backlog. Do not create another task list or roadmap in the repository.
 Repository documentation explains how to work; GitHub issues record what to build.
 
+Tracker is a personal-use app. Delivery is a local Android release APK built with
+`./gradlew assembleRelease` in `android/`, then sent to the owner's phone by
+Bluetooth for sideloading. Preserve that flow for private previews. App-store
+publishing, public build/artifact distribution and production Firebase deployment
+require Hitesh's explicit approval; they are never the default delivery path.
+
+Regular dependency installs, locally and in CI, use the committed lockfiles with
+`npm ci` (also `npm ci --prefix tools/firebase` when that tools project is present).
+See [dependency updates](docs/dependency-updates.md) before changing packages or Actions.
+
 ## Before starting
 
 1. File one issue per independently reviewable change using the issue form.

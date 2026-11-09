@@ -1,0 +1,48 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /
+      # Isolated emulator/rules tooling is introduced by the same sprint's #27.
+      - /tools/firebase
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 3
+    labels: ["kind:security"]
+    groups:
+      expo-react-native:
+        applies-to: version-updates
+        patterns:
+          - expo
+          - expo-*
+          - "@expo/*"
+          - react
+          - react-dom
+          - react-native
+          - react-native-*
+          - "@react-native/*"
+          - "@react-native-*/*"
+      expo-react-native-security:
+        applies-to: security-updates
+        patterns:
+          - expo
+          - expo-*
+          - "@expo/*"
+          - react
+          - react-dom
+          - react-native
+          - react-native-*
+          - "@react-native/*"
+          - "@react-native-*/*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 2
+    labels: ["kind:security"]
