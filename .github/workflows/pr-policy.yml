@@ -1,0 +1,26 @@
+name: PR policy
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  pr-policy:
+    name: PR policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the proposed change
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate issue link and verification report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/pr-policy.cjs

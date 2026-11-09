@@ -1,0 +1,79 @@
+name: One change
+description: Propose one independently reviewable change for the Tracker backlog.
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Add this issue to the Tracker backlog project and set Status, Priority,
+        Size and Kind there before starting. Work one issue at a time, or a sprint
+        of 2–3 issues agreed with Hitesh. The project is the only backlog.
+  - type: textarea
+    id: change
+    attributes:
+      label: Change
+      description: State the problem, resulting behavior and scope of this one change.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 Critical
+        - P1 High
+        - P2 Medium
+        - P3 Low
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - S (under a day)
+        - M (a few days)
+        - L (a week or more)
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Process
+        - Security
+        - CI
+        - Testing
+        - Feature
+        - Bug
+        - Tech debt
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use checkboxes with observable outcomes. Split unrelated changes into separate issues.
+      placeholder: "- [ ] The expected behavior can be demonstrated."
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: Name relevant automated checks and phone/build checks; explain what proves success.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Link prerequisite issues, or write None.
+    validations:
+      required: true
+  - type: textarea
+    id: links
+    attributes:
+      label: Branch / PR
+      description: When work starts, link issue/<number>-<slug> and its PR here or in an issue comment.
