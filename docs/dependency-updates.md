@@ -14,11 +14,12 @@ that packages are secure or compatible.
 
 ## Dependabot proposals
 
-`.github/dependabot.yml` checks the root npm project, isolated Firebase tools and
-GitHub Actions weekly on Monday at 09:00 Singapore time. It caps open version
-update proposals at three for npm and two for Actions. The Firebase tools
-directory arrives with #27 in this sprint. Activate these changes together so
-both npm locations exist on main.
+`.github/dependabot.yml` checks the root npm project, isolated Firebase tools,
+GitHub Actions and Android Gradle weekly on Monday at 09:00 Singapore time. It
+caps open version update proposals at three for npm and two each for Actions and
+Android Gradle. The resolved Android graph,
+lock refresh procedure, generated included-build exceptions and alert readback
+are described in [Android dependency security](android-dependencies.md).
 
 There is no auto-merge workflow. Each proposal needs an issue on the Tracker
 board, review and a verification report. Dependabot's generated branches do not
