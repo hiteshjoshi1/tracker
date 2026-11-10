@@ -110,6 +110,37 @@ test('local email signup creates only a synthetic emulator account', async () =>
     await deleteApp(signup.app);
   }
 });
+test('goal date updates accept Date values and retain owner/date query behavior', async () => {
+  const ref = doc(alice.db, 'goals', 'smoke-date-move');
+  const originalDate = Timestamp.fromDate(new Date('2026-01-14T12:00:00.000Z'));
+  const movedDate = new Date('2026-01-15T17:34:56.789Z');
+  try {
+    await setDoc(ref, {
+      userId: 'alice',
+      text: 'Date storage regression',
+      date: originalDate,
+      createdAt: originalDate,
+      updatedAt: originalDate,
+      completed: false
+    });
+    // GoalService.moveToDate forwards the domain Date through updateItem.
+    await updateDoc(ref, { date: movedDate });
+    const stored = (await getDoc(ref)).data().date;
+    assert.ok(stored instanceof Timestamp);
+    assert.equal(stored.toMillis(), movedDate.getTime());
+    const movedGoals = await getDocs(query(
+      collection(alice.db, 'goals'),
+      where('userId', '==', 'alice'),
+      where('date', '>=', Timestamp.fromDate(new Date('2026-01-15T00:00:00.000Z'))),
+      where('date', '<=', Timestamp.fromDate(new Date('2026-01-15T23:59:59.999Z')))
+    ));
+    assert.ok(movedGoals.docs.some(goal => goal.id === ref.id));
+    await assert.rejects(() => getDoc(doc(bob.db, 'goals', ref.id)), /permission/i);
+    await assert.rejects(() => updateDoc(ref, { userId: 'bob' }), /permission/i);
+  } finally {
+    await deleteDoc(ref);
+  }
+});
 test('safe reset and reseed reproduce stable accounts and ten fixtures', async () => {
   await signOut(alice.auth);
   await signOut(bob.auth);

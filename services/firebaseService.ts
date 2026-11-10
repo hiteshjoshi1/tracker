@@ -175,7 +175,8 @@ export class GoalService extends FirebaseService<Goal> {
 
   // Move goal to a different date (e.g., from past to today)
   async moveToDate(goalId: string, date: Date): Promise<void> {
-    await this.updateItem(goalId, { date: Timestamp.fromDate(date) } as Partial<Goal>);
+    // Firestore serializes Date values to timestamps at the write boundary.
+    await this.updateItem(goalId, { date });
   }
 
   // Move all incomplete past goals to the target date
@@ -196,11 +197,12 @@ export class GoalService extends FirebaseService<Goal> {
 
     let movedCount = 0;
     querySnapshot.docs.forEach(docSnap => {
-      const data = docSnap.data() as Partial<Goal>;
+      // Old documents can contain numeric/string flags outside the Goal model.
+      const completed: unknown = docSnap.data().completed;
       const isCompleted =
-        data.completed === true ||
-        data.completed === 1 ||
-        data.completed === "true";
+        completed === true ||
+        completed === 1 ||
+        completed === "true";
 
       if (isCompleted) return;
 
