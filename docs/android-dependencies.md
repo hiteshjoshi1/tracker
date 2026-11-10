@@ -32,7 +32,10 @@ as well as application runtime dependencies. The graph plugin also observes depe
 Gradle plugins, including the React Native and Expo included builds. The job
 fails if application resolution or snapshot submission fails. It never rewrites
 locks with `--write-locks`, and checks for tracked dependency changes afterwards.
-Android SDK components/NDK must be available (standard GitHub Android runner).
+The job explicitly selects demo/emulator Firebase configuration with loopback
+endpoints, so Expo config evaluation cannot silently select production. Resolution
+does not require running Firebase emulators. Android SDK components/NDK must be
+available (standard GitHub Android runner).
 
 A failed submission leaves GitHub's previous snapshot stale. Inspect the Actions
 failure, fix the cause in an issue-linked PR, rerun on main and confirm the new
@@ -66,14 +69,30 @@ including Android Gradle Plugin/Kotlin/Google Services and their transitives.
 classpaths; missing lock state or incompatible resolutions fail those variants.
 `settings-gradle.lockfile` records the version catalog's empty external dependency
 state. Do not hand-edit generated lockfiles. Refresh them intentionally after an
-approved dependency change:
+approved dependency change. Use Node from `.nvmrc`, JDK 21, Android SDK platform
+35/build tools 35.0.0 and NDK 26.1.10909125. This example assumes macOS with
+Android Studio and its SDK installed at their default locations; on other hosts,
+set `JAVA_HOME` and `ANDROID_HOME` to those installed prerequisites instead.
+Run from the repository root:
 
 ```sh
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export EXPO_PUBLIC_FIREBASE_MODE=emulator
+export EXPO_PUBLIC_FIREBASE_PROJECT_ID=demo-tracker
+export EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099
+export EXPO_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST=10.0.2.2:8080
 npm ci
 cd android
 ./gradlew resolveDependencyLocks --write-locks -PreactNativeArchitectures=arm64-v8a
 ./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a
 ```
+
+These environment values package a debug app for an Android emulator: its
+`10.0.2.2` address reaches Firebase emulators on the host. The build itself does
+not need Firebase to run. CI only resolves dependencies and uses loopback hosts
+instead; neither recipe selects production. Production release configuration is
+separate from this debug lock/build recipe.
 
 Review the complete lock diff and run resolution again without `--write-locks`.
 Use an explicitly scoped `--update-locks group:module` when a locked module needs

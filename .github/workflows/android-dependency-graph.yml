@@ -28,6 +28,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      # Safe even if native configuration evaluates Expo app.config.ts.
+      EXPO_PUBLIC_FIREBASE_MODE: emulator
+      EXPO_PUBLIC_FIREBASE_PROJECT_ID: demo-tracker
+      EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      EXPO_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
       # Stable key also replaces the initial locally generated main snapshot.
       GITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR: tracker-android-main-manual
     permissions:
