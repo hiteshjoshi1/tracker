@@ -3,6 +3,8 @@
 The [Tracker backlog](https://github.com/users/hiteshjoshi1/projects/3) is the
 single backlog. Do not create another task list or roadmap in the repository.
 Repository documentation explains how to work; GitHub issues record what to build.
+People and agents should also read [AGENTS.md](AGENTS.md) for checkout, environment
+and native-code safeguards.
 
 Tracker is a personal-use app. Delivery is a local Android release APK built with
 `./gradlew assembleRelease` in `android/`, then sent to the owner's phone by
@@ -21,9 +23,13 @@ See [dependency updates](docs/dependency-updates.md) before changing packages or
 2. Add it to the project and set all four fields: Status, Priority, Size and Kind.
    Keep the issue's matching fields and labels consistent with the project.
    Form dropdowns populate the body; they do not set project fields or labels.
-3. Work one issue at a time, or a sprint of 2–3 issues Hitesh has agreed to.
+3. Hitesh selects and starts sprint scope. Work one issue at a time, or use 2–3
+   issues as the default sprint size. His latest approved composition overrides
+   that default; a proposal alone does not authorize implementation.
    A large issue must be split into independently reviewable changes before work starts.
-4. Branch from current `main` as `issue/<number>-<slug>`. Link the branch in the
+4. Fetch `origin` and branch from current `origin/main` in an isolated worktree as
+   `issue/<number>-<slug>`. Check the active path, branch and commit before commands
+   as described in AGENTS.md. Link the branch in the
    issue's Development section or a comment, and move the issue to In progress.
    Commit and push only on that branch. Changes reach `main` through reviewed PRs.
 
@@ -55,9 +61,13 @@ report before review; it does not run application verification or prove the
 reported results. Draft PRs still need their issue metadata but may omit the report.
 After changing issue metadata, rerun the check or edit the PR description.
 
-Application CI, a combined verification command and required branch checks are
-separate backlog changes. Until those land, run the checks appropriate to the
-change and report missing coverage. Do not describe `npm run verify` as available.
+The combined verification command [#29](https://github.com/hiteshjoshi1/tracker/issues/29),
+application CI [#30](https://github.com/hiteshjoshi1/tracker/issues/30) and required
+branch checks are separate backlog changes. Until they land in the checkout being
+tested, run the available checks appropriate to the change and report missing
+coverage or existing failures. Do not describe `npm run verify` as available before
+it exists. A combined review candidate's results must identify its actual SHA
+separately from the individual PR heads.
 
 ## Board status and completion
 
@@ -72,5 +82,6 @@ change and report missing coverage. Do not describe `npm run verify` as availabl
 
 Review feedback returns an issue to In progress. Keep the issue in Fixed-To Review
 after merge until Hitesh accepts it; closing an issue and accepting it are distinct.
-The merge's closing keyword closes the issue. Production releases require Hitesh's
+The merge's closing keyword closes the issue. Merge only within Hitesh's explicit
+authorization; passing checks alone do not authorize merging. Production releases require Hitesh's
 explicit approval and, once the preview process is implemented, recorded phone tests.
