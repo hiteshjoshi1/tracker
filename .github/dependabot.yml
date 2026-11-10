@@ -4,6 +4,7 @@ updates:
     directories:
       - /
       - /tools/firebase
+      - /tools/quality
     schedule:
       interval: weekly
       day: monday
