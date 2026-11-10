@@ -11,11 +11,15 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "test:rules": "npm --prefix tools/firebase run test:rules",
-    "lint": "expo lint",
+    "lint": "node tools/quality/node_modules/eslint/bin/eslint.js --resolve-plugins-relative-to tools/quality --ext .js,.cjs,.ts,.tsx .",
     "emulators": "npm --prefix tools/firebase run emulators",
     "emulators:seed": "npm --prefix tools/firebase run seed",
     "emulators:reset": "npm --prefix tools/firebase run reset",
-    "test:local": "npm --prefix tools/firebase run test:local"
+    "test:local": "npm --prefix tools/firebase run test:local",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "jest --runInBand --watch=false",
+    "test:policy": "node --test .github/scripts/pr-policy.test.cjs",
+    "verify": "node scripts/verify.cjs"
   },
   "jest": {
     "preset": "jest-expo"
@@ -63,5 +67,6 @@
     "react-test-renderer": "18.3.1",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "private": true,
+  "packageManager": "npm@10.9.9"
 }
