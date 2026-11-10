@@ -31,11 +31,15 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             tools/firebase/package-lock.json
+            tools/quality/package-lock.json
       - name: Install the committed dependency trees
         run: |
           npm ci --no-audit --no-fund
           if test -f tools/firebase/package.json; then
             npm ci --prefix tools/firebase --no-audit --no-fund
           fi
+          if test -f tools/quality/package.json; then
+            npm ci --prefix tools/quality --no-audit --no-fund
+          fi
       - name: Ensure install did not rewrite manifests or lockfiles
-        run: git diff --exit-code -- package.json package-lock.json tools/firebase/package.json tools/firebase/package-lock.json
+        run: git diff --exit-code -- package.json package-lock.json tools/firebase/package.json tools/firebase/package-lock.json tools/quality/package.json tools/quality/package-lock.json
