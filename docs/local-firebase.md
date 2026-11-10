@@ -7,10 +7,14 @@ are not needed for the local testing described here. Firebase emulators use synt
 
 ## Start, seed and stop
 
-Use Node 22 and Java 21 or later. From the repository root:
+Use the pinned Node/npm versions and Java 21 or later; see the
+[setup guide](../README.md#install-the-pinned-tools). First identify the intended
+checkout as described in the [README](../README.md#select-the-checkout-first).
+From that repository root:
 
 ```bash
 npm ci
+npm ci --prefix tools/quality
 npm ci --prefix tools/firebase
 npm run emulators
 ```
@@ -32,18 +36,23 @@ Ctrl-C; data is ephemeral and there is no automatic export/import of personal da
 
 ## Connect the development app
 
-In a dedicated development terminal, export the safe sample environment:
+An Android virtual device is separate from the Firebase emulator servers above.
+In a dedicated development terminal at the same checkout root, export the safe
+sample environment and Android-emulator endpoints before the first build:
 
 ```bash
 set -a
 source .env.emulator.example
 set +a
-npx expo start --dev-client --localhost --clear
+export EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099
+export EXPO_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST=10.0.2.2:8080
+npx expo run:android
 ```
 
-Build a debug development client with these same exported variables using
-`npx expo run:android`. Do not run destructive `expo prebuild --clean`: the committed
-native project contains the custom ScreenTime module.
+This builds a debug development client and starts Metro. To restart only Metro,
+stop it with Ctrl-C and run `npx expo start --dev-client --localhost --clear` in
+that same configured terminal. Do not run destructive `expo prebuild --clean`:
+the committed native project contains the custom ScreenTime module.
 
 Emulator mode omits the production `googleServicesFile` paths from Expo config,
 so missing personal Google service files do not block Metro asset resolution.
@@ -53,9 +62,8 @@ It enables a clean local debug build without personal credentials. Release build
 continue using the owner's ignored real Google service configuration; the debug
 fixture is never a replacement for release configuration.
 
-For the Android emulator, change the two client endpoints to
-`10.0.2.2:9099` and `10.0.2.2:8080` before starting/building the app. The server still
-binds only to your computer's loopback address. For an iOS simulator or browser,
+The Android client endpoints above use `10.0.2.2`; the server still binds only to
+your computer's loopback address. For an iOS simulator or browser,
 use `localhost:9099` and `localhost:8080`. iOS cleartext/ATS behavior still needs
 platform validation; this sprint's transport/build checks focus on Android debug.
 
@@ -110,6 +118,12 @@ for noninteractive local/CI use, with no real credentials. Run it separately fro
 `npm run test:rules`, which also owns port 8080 and clears its fixtures. Java must
 be available; emulator binaries may download on the first run. A successful Node
 smoke test is not physical phone evidence.
+
+The combined `npm run verify` gate runs rules and local tests serially after
+lint, types, unit and policy checks. Stop manual Firebase sessions first; both
+suites reset fixtures. See [verification](verification.md) for the full gate,
+CI evidence and coverage limits. Access-denial messages are expected in negative
+tests; check the final suite exit status instead of treating each log as a failure.
 
 For a manual device check, record device/OS, exact commit/build, local login,
 owner CRUD/listener behavior and offline/reconnect results. No physical-device
