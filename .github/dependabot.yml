@@ -5,6 +5,7 @@ updates:
       - /
       # Isolated emulator/rules tooling is introduced by the same sprint's #27.
       - /tools/firebase
+      - /tools/quality
     schedule:
       interval: weekly
       day: monday

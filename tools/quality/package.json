@@ -1,0 +1,12 @@
+{
+  "name": "tracker-quality-tools",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "devDependencies": {
+    "eslint": "8.57.1",
+    "eslint-config-expo": "8.0.1"
+  }
+}
