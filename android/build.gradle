@@ -14,6 +14,9 @@ buildscript {
         google()
         mavenCentral()
     }
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
     dependencies {
         classpath 'com.google.gms:google-services:4.4.1'
         classpath('com.android.tools.build:gradle')
@@ -38,5 +41,36 @@ allprojects {
         google()
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
+    }
+}
+
+// Lock the application dependency graph in a repository-owned file. Expo and RN
+// subprojects under node_modules are immutable inputs from package-lock.json;
+// their resolved transitive dependencies are captured by the app classpaths.
+project(':app') {
+    configurations.matching {
+        it.name in ['debugCompileClasspath', 'debugRuntimeClasspath',
+                    'releaseCompileClasspath', 'releaseRuntimeClasspath']
+    }.configureEach {
+        resolutionStrategy.activateDependencyLocking()
+    }
+    dependencyLocking {
+        lockMode = LockMode.STRICT
+    }
+}
+
+// Resolve both variants for lock refresh and graph validation. Only an explicit
+// --write-locks changes state; CI never passes that flag.
+tasks.register('resolveDependencyLocks') {
+    doLast {
+        ['debugCompileClasspath', 'debugRuntimeClasspath',
+         'releaseCompileClasspath', 'releaseRuntimeClasspath'].each { name ->
+            def result = project(':app').configurations.getByName(name).incoming.resolutionResult
+            result.allDependencies.each { dependency ->
+                if (dependency instanceof org.gradle.api.artifacts.result.UnresolvedDependencyResult) {
+                    throw new GradleException("Cannot resolve ${name}: ${dependency.attempted}", dependency.failure)
+                }
+            }
+        }
     }
 }
