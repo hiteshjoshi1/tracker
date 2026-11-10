@@ -47,14 +47,13 @@ backlog; keep plans and acceptance criteria in its issues, not a second task lis
 
 ## Verification and delivery
 
-- Install with committed lockfiles: `npm ci` and `npm ci --prefix tools/firebase`.
-  On the current main, available checks include `npm test -- --runInBand --watch=false`,
-  `npx --no-install tsc --noEmit`, `npm run lint`, `npm run test:rules` and
-  `npm run test:local`. Availability does not mean a check passes or is fully
-  configured. The combined command and application CI are tracked in
-  [#29](https://github.com/hiteshjoshi1/tracker/issues/29) and
-  [#30](https://github.com/hiteshjoshi1/tracker/issues/30); use them once present
-  in the checkout, and do not claim `npm run verify` exists before it does.
+- Install all three committed lockfiles: `npm ci`, `npm ci --prefix tools/quality`
+  and `npm ci --prefix tools/firebase`. Run `npm run verify` before review; it runs
+  lint, types, unit tests, PR-policy tests and both real Firebase suites serially.
+  Use the focused commands in [verification](docs/verification.md) while iterating.
+  The GitHub `Verification` check runs the same gate on PRs and main; `PR policy`
+  separately validates the current-commit review report. Native compilation and
+  phone approval remain separate. A warning-bearing lint pass is not a clean audit.
 - Follow the [PR template](.github/pull_request_template.md): `Closes #<number>`,
   full current head SHA, actual commands/results, relevant device/OS/build,
   skipped checks and limitations. Report baseline failures honestly; do not hide

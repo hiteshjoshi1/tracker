@@ -1,0 +1,56 @@
+name: Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the proposed change
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up the pinned Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tools/quality/package-lock.json
+            tools/firebase/package-lock.json
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install the three committed dependency trees
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix tools/quality --no-audit --no-fund
+          npm ci --prefix tools/firebase --no-audit --no-fund
+      - name: Ensure installs preserve manifests and lockfiles
+        run: git diff --exit-code -- package.json package-lock.json tools/quality/package.json tools/quality/package-lock.json tools/firebase/package.json tools/firebase/package-lock.json
+      - name: Verify lint, types, unit tests, policy and Firebase access
+        run: npm run verify
+      - name: Retain safe stage diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: verification-results/summary.json
+          if-no-files-found: warn
+          retention-days: 7

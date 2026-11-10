@@ -61,13 +61,13 @@ report before review; it does not run application verification or prove the
 reported results. Draft PRs still need their issue metadata but may omit the report.
 After changing issue metadata, rerun the check or edit the PR description.
 
-The combined verification command [#29](https://github.com/hiteshjoshi1/tracker/issues/29),
-application CI [#30](https://github.com/hiteshjoshi1/tracker/issues/30) and required
-branch checks are separate backlog changes. Until they land in the checkout being
-tested, run the available checks appropriate to the change and report missing
-coverage or existing failures. Do not describe `npm run verify` as available before
-it exists. A combined review candidate's results must identify its actual SHA
-separately from the individual PR heads.
+Run `npm run verify` before review, after installing all three committed lockfiles.
+The stable `Verification` CI check runs that same gate on every PR to main and on
+main updates; `PR policy` validates the report separately. Follow
+[verification](docs/verification.md) for setup, focused checks and coverage limits.
+Required branch checks and native compile gates remain separate backlog changes.
+A combined review candidate's results must identify its actual SHA separately
+from the individual PR heads.
 
 ## Board status and completion
 

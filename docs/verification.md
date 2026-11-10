@@ -46,3 +46,20 @@ This gate does not replace Android compilation for native changes, iOS compilati
 when affected, or the owner's phone approval. Preserve custom ScreenTime code and
 the private `cd android && ./gradlew assembleRelease` + Bluetooth installation path.
 No store publication, cloud Firebase deployment or release occurs during verify.
+
+## GitHub checks
+
+The stable `Verification` job runs this same command on every PR to `main` and on
+main updates, without path filters. It replaces the earlier install-only workflow:
+clean installation and lockfile-preservation checks happen before the six stages.
+`PR policy` remains a separate check for the issue link and current-commit report.
+
+Workflows pin every external Action by full SHA, default to read-only permissions,
+and give PR code no signing, deployment or production Firebase credentials.
+Superseded runs are cancelled. The job times out after 20 minutes; command logs
+show the failing stage, and a failed run retains only the safe summary JSON for
+seven days. Raw Firebase debug logs, environment files and app builds are excluded.
+
+Android/iOS compile gates and making these checks required on main are separate
+backlog work. This workflow verifies app logic/access; it does not release an APK
+or claim physical-phone, native compilation or dependency-security coverage.
