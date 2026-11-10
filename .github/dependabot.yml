@@ -3,7 +3,6 @@ updates:
   - package-ecosystem: npm
     directories:
       - /
-      # Isolated emulator/rules tooling is introduced by the same sprint's #27.
       - /tools/firebase
     schedule:
       interval: weekly
@@ -47,6 +46,15 @@ updates:
           - "@react-native-*/*"
   - package-ecosystem: github-actions
     directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 2
+    labels: ["kind:security"]
+  - package-ecosystem: gradle
+    directory: /android
     schedule:
       interval: weekly
       day: monday
